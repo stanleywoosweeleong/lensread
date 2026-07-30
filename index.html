@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1418">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="镜读">
+<title>镜读 LensRead · OCR 笔记</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='38' fill='%230E1418'/%3E%3Cg fill='none' stroke='%230B6B4F' stroke-width='9' stroke-linecap='square'%3E%3Cpath d='M40 62V40h22M140 62V40h-22M40 118v22h22M140 118v22h-22'/%3E%3C/g%3E%3Crect x='58' y='84' width='64' height='9' fill='%235B3FA6'/%3E%3Crect x='58' y='66' width='44' height='9' fill='%23EDEFEA'/%3E%3Crect x='58' y='102' width='54' height='9' fill='%23EDEFEA'/%3E%3C/svg%3E">
+<style>
+/* ── 镜读 LensRead — palette drawn from lens coatings: viridian + violet on cool paper ── */
+:root{
+  --ink:#0E1418;
+  --paper:#EDEFEA;
+  --card:#FFFFFF;
+  --line:#CBD2CC;
+  --line-soft:#E2E6E0;
+  --dim:#5C6660;
+  --viridian:#0B6B4F;
+  --violet:#5B3FA6;
+  --flag:#A33217;
+  --amberish:#8A6A11;
+  --sheen:linear-gradient(90deg,#0B6B4F 0%,#2E7E6B 38%,#5B3FA6 100%);
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Noto Sans Mono CJK SC","PingFang SC","Microsoft YaHei",monospace;
+  --r:4px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--ui);
+  font-size:15px;line-height:1.5;
+  padding:0 0 96px;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:760px;margin:0 auto;padding:0 14px}
+
+/* ── header ── */
+header{
+  position:sticky;top:0;z-index:40;background:var(--ink);color:var(--paper);
+  padding:calc(env(safe-area-inset-top) + 10px) 0 10px;
+}
+.hbar{display:flex;align-items:center;gap:10px}
+.mark{width:26px;height:26px;flex:0 0 26px}
+.brand{display:flex;flex-direction:column;line-height:1.1;margin-right:auto}
+.brand b{font-size:17px;font-weight:650;letter-spacing:.02em}
+.brand span{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:#8D9A93;margin-top:3px}
+.hbtn{
+  background:transparent;border:1px solid #333C3A;color:var(--paper);
+  font:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  padding:7px 10px;border-radius:var(--r);cursor:pointer
+}
+.hbtn:active{background:#1B2320}
+.rail{height:2px;background:var(--sheen)}
+
+/* ── section furniture ── */
+.eyebrow{
+  font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);
+  display:flex;align-items:center;gap:8px;margin:20px 0 8px
+}
+.eyebrow:after{content:"";flex:1;height:1px;background:var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+
+/* ── capture ── */
+.capture{padding:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button.act{
+  font-family:var(--ui);font-size:14px;font-weight:600;
+  padding:14px 12px;border-radius:var(--r);cursor:pointer;
+  border:1px solid var(--ink);background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%
+}
+button.act.ghost{background:transparent;color:var(--ink)}
+button.act.slim{padding:10px;font-size:13px;font-weight:500}
+button.act:disabled{opacity:.35;cursor:not-allowed}
+button.act:active{transform:translateY(1px)}
+.hintline{font-size:12px;color:var(--dim);margin-top:10px}
+.hintline b{color:var(--ink);font-weight:600}
+
+/* ── the signature: bracketed capture stage ── */
+.stage{position:relative;background:#0E1418;border-radius:var(--r);overflow:hidden;margin-top:12px}
+.stage canvas{display:block;width:100%;height:auto;touch-action:none}
+.bracket{position:absolute;inset:0;pointer-events:none}
+.bracket i{position:absolute;width:22px;height:22px;border:2px solid rgba(237,239,234,.9)}
+.bracket i:nth-child(1){top:8px;left:8px;border-right:0;border-bottom:0}
+.bracket i:nth-child(2){top:8px;right:8px;border-left:0;border-bottom:0}
+.bracket i:nth-child(3){bottom:8px;left:8px;border-right:0;border-top:0}
+.bracket i:nth-child(4){bottom:8px;right:8px;border-left:0;border-top:0}
+.sel{position:absolute;border:1.5px solid #fff;background:rgba(91,63,166,.16);pointer-events:none;display:none}
+.sel.on{display:block}
+.sel:before,.sel:after{content:"";position:absolute;background:var(--sheen);}
+.sel:before{left:0;right:0;top:-1.5px;height:1.5px}
+.sel:after{left:0;right:0;bottom:-1.5px;height:1.5px}
+.sweep{position:absolute;left:0;right:0;height:2px;background:var(--sheen);opacity:0;box-shadow:0 0 18px rgba(91,63,166,.9)}
+.stage.busy .sweep{opacity:1;animation:sweep 1.5s cubic-bezier(.4,0,.6,1) infinite}
+@keyframes sweep{0%{top:0}50%{top:calc(100% - 2px)}100%{top:0}}
+.toolrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.toolrow button{flex:1 1 auto;min-width:78px}
+
+/* ── live reading stage ── */
+.modes{display:flex;gap:0;border:1px solid var(--ink);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.modes button{
+  flex:1;font:inherit;font-size:13px;font-weight:600;padding:10px 6px;border:0;cursor:pointer;
+  background:transparent;color:var(--ink);border-right:1px solid var(--ink)
+}
+.modes button:last-child{border-right:0}
+.modes button.on{background:var(--ink);color:#fff}
+.livewrap{position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-top:12px}
+.livewrap video{display:block;width:100%;height:54vh;max-height:420px;object-fit:cover;background:#000}
+.band{
+  position:absolute;left:4%;right:4%;pointer-events:none;
+  border-top:1px solid rgba(237,239,234,.55);border-bottom:1px solid rgba(237,239,234,.55);
+  box-shadow:0 0 0 2000px rgba(14,20,24,.46)
+}
+.band b{position:absolute;width:16px;height:16px;border:2px solid #EDEFEA}
+.band b:nth-child(1){top:-1px;left:-1px;border-right:0;border-bottom:0}
+.band b:nth-child(2){top:-1px;right:-1px;border-left:0;border-bottom:0}
+.band b:nth-child(3){bottom:-1px;left:-1px;border-right:0;border-top:0}
+.band b:nth-child(4){bottom:-1px;right:-1px;border-left:0;border-top:0}
+.band em{position:absolute;left:0;right:0;top:0;height:2px;background:var(--sheen);opacity:0}
+.band.reading em{opacity:1;animation:sweep2 1.1s linear infinite}
+@keyframes sweep2{0%{top:0}100%{top:calc(100% - 2px)}}
+.badge{
+  position:absolute;top:8px;left:8px;z-index:3;font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+  color:#EDEFEA;background:rgba(14,20,24,.72);padding:4px 9px;border-radius:999px;display:flex;align-items:center;gap:6px
+}
+.badge s{width:6px;height:6px;border-radius:50%;background:#8D9A93;text-decoration:none}
+.badge.steady s{background:var(--viridian)}
+.badge.reading s{background:#C9A227;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.livebtns{position:absolute;top:8px;right:8px;z-index:3;display:flex;gap:6px}
+.livebtns button{
+  font:inherit;font-size:11px;letter-spacing:.08em;color:#EDEFEA;background:rgba(14,20,24,.72);
+  border:1px solid rgba(237,239,234,.3);padding:5px 9px;border-radius:999px;cursor:pointer
+}
+.livebtns button.on{background:var(--viridian);border-color:var(--viridian)}
+.caught{margin-top:10px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden}
+.crow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line-soft)}
+.crow:last-child{border-bottom:0}
+.crow .ct{font-family:var(--mono);font-size:13.5px;line-height:1.45;word-break:break-word;min-width:0}
+.crow .cc{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+.crow.fresh{animation:landed .5s ease-out}
+@keyframes landed{from{background:rgba(11,107,79,.14)}to{background:transparent}}
+.crow.weak .ct{color:#7A4231}
+.crow.weak .cc{color:var(--flag)}
+.crow .cx{border:0;background:transparent;color:var(--dim);font-size:15px;line-height:1;cursor:pointer;padding:4px 2px}
+.livefoot{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.livefoot button{flex:1 1 100px}
+
+/* ── progress ── */
+.prog{margin-top:12px;display:none}
+.prog.on{display:block}
+.prog .bar{height:3px;background:var(--line-soft);border-radius:2px;overflow:hidden}
+.prog .bar i{display:block;height:100%;width:0;background:var(--sheen);transition:width .25s}
+.prog .txt{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:6px}
+
+/* ── result ── */
+.lines{padding:0}
+.ln{display:grid;grid-template-columns:40px 1fr;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line-soft);align-items:start}
+.ln:last-child{border-bottom:0}
+.conf{font-family:var(--mono);font-size:10px;color:var(--dim);padding-top:3px;text-align:right}
+.conf i{display:block;height:2px;background:var(--viridian);margin-top:3px;margin-left:auto}
+.ln.low .conf{color:var(--flag);font-weight:700}
+.ln.low .conf i{background:var(--flag)}
+.ln.low .t{background:rgba(163,50,23,.07);box-shadow:-4px 0 0 var(--flag)}
+.t{font-family:var(--mono);font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word;padding-left:6px}
+textarea.edit{
+  width:100%;min-height:200px;border:0;border-top:1px solid var(--line-soft);
+  font-family:var(--mono);font-size:14px;line-height:1.6;padding:12px;resize:vertical;
+  background:transparent;color:var(--ink);border-radius:0 0 var(--r) var(--r)
+}
+textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
+.meta{
+  display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid var(--line-soft);
+  font-family:var(--mono);font-size:10.5px;color:var(--dim);align-items:center
+}
+.chip{border:1px solid var(--line);padding:2px 7px;border-radius:999px;letter-spacing:.04em}
+.chip.warn{border-color:var(--flag);color:var(--flag)}
+.chip.ok{border-color:var(--viridian);color:var(--viridian)}
+
+/* ── notes ── */
+.note{padding:12px;border-bottom:1px solid var(--line-soft)}
+.note:last-child{border-bottom:0}
+.note h3{margin:0;font-size:15px;font-weight:650;line-height:1.35;word-break:break-word}
+.note .sub{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:4px;letter-spacing:.03em}
+.note .body{font-family:var(--mono);font-size:12.5px;color:#39423D;margin-top:7px;max-height:3.6em;overflow:hidden;white-space:pre-wrap;word-break:break-word}
+.note .row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.note .row button{
+  font:inherit;font-size:12px;padding:6px 10px;border:1px solid var(--line);background:transparent;
+  border-radius:var(--r);cursor:pointer;color:var(--ink)
+}
+.note .row button.danger{color:var(--flag);border-color:#E3C6BF}
+.nhead{display:flex;gap:8px;align-items:flex-start}
+.nhead input[type=checkbox]{width:19px;height:19px;margin:2px 0 0;accent-color:var(--violet);flex:0 0 19px}
+.thumb{width:52px;height:52px;object-fit:cover;border:1px solid var(--line);border-radius:2px;flex:0 0 52px;background:#0E1418}
+.search{width:100%;font:inherit;font-size:14px;padding:11px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink)}
+.search:focus{outline:2px solid var(--violet);outline-offset:-2px}
+.empty{padding:26px 16px;text-align:center;color:var(--dim);font-size:13px}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:5px}
+
+/* ── export bar ── */
+.dock{
+  position:fixed;left:0;right:0;bottom:0;z-index:45;background:var(--ink);
+  padding:10px 14px calc(env(safe-area-inset-bottom) + 10px);
+}
+.dock .inner{max-width:760px;margin:0 auto;display:flex;gap:6px;align-items:center}
+.dock button{
+  flex:1;font:inherit;font-size:12px;font-weight:600;padding:11px 4px;border-radius:var(--r);
+  border:1px solid #333C3A;background:transparent;color:var(--paper);cursor:pointer
+}
+.dock button.primary{background:var(--viridian);border-color:var(--viridian)}
+.dock .count{font-family:var(--mono);font-size:10px;color:#8D9A93;letter-spacing:.1em;padding-right:4px;white-space:nowrap}
+
+/* ── sheet / modal ── */
+.sheet{position:fixed;inset:0;z-index:60;background:rgba(14,20,24,.55);display:none;align-items:flex-end}
+.sheet.on{display:flex}
+.sheet .panel{
+  background:var(--paper);width:100%;max-height:88vh;overflow:auto;border-radius:12px 12px 0 0;
+  padding:16px 14px calc(env(safe-area-inset-bottom) + 18px);margin:0 auto;max-width:760px
+}
+.sheet h2{margin:2px 0 14px;font-size:16px;letter-spacing:.02em}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.field select,.field input[type=text]{width:100%;font:inherit;font-size:14px;padding:10px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink)}
+.switch{display:flex;align-items:center;gap:10px;padding:9px 0;font-size:14px;border-bottom:1px solid var(--line-soft)}
+.switch input{width:20px;height:20px;accent-color:var(--viridian)}
+.small{font-size:12px;color:var(--dim);line-height:1.55}
+.small code{font-family:var(--mono);font-size:11px;background:#E4E7E2;padding:1px 4px;border-radius:2px}
+
+/* ── alerts: loud, never silent ── */
+.alert{border:1px solid var(--flag);background:#FBF0ED;color:#6E2110;padding:11px 12px;border-radius:var(--r);font-size:13px;margin-top:12px;display:none}
+.alert.on{display:block}
+.alert b{display:block;margin-bottom:3px}
+.alert button{margin-top:8px;font:inherit;font-size:12px;padding:7px 12px;border:1px solid var(--flag);background:transparent;color:#6E2110;border-radius:var(--r);cursor:pointer}
+.toast{
+  position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 78px);transform:translate(-50%,14px);
+  background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:13px;
+  z-index:80;opacity:0;pointer-events:none;transition:.22s;max-width:90vw;text-align:center
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.hide{display:none !important}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+@media (min-width:620px){ .t{font-size:15px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hbar">
+    <svg class="mark" viewBox="0 0 180 180" aria-hidden="true">
+      <g fill="none" stroke="#0B6B4F" stroke-width="12" stroke-linecap="square">
+        <path d="M30 58V30h28M150 58V30h-28M30 122v28h28M150 122v28h-28"/>
+      </g>
+      <rect x="54" y="82" width="72" height="12" fill="#5B3FA6"/>
+      <rect x="54" y="60" width="48" height="12" fill="#EDEFEA"/>
+      <rect x="54" y="104" width="60" height="12" fill="#EDEFEA"/>
+    </svg>
+    <div class="brand"><b id="brandName">镜读</b><span>LensRead · OCR</span></div>
+    <button class="hbtn" id="langBtn">EN</button>
+    <button class="hbtn" id="setBtn" data-i18n="set">设置</button>
+  </div>
+</header>
+<div class="rail"></div>
+
+<main class="wrap">
+
+  <!-- capture -->
+  <div class="eyebrow" data-i18n="secCapture">取像</div>
+  <section class="card capture">
+    <div class="modes">
+      <button id="mLive" class="on" data-i18n="mLive">实时取字</button>
+      <button id="mShot" data-i18n="mShot">拍照识别</button>
+    </div>
+
+    <!-- live -->
+    <div id="livePane">
+      <button class="act" id="liveBtn" data-i18n="startLive">开始取字</button>
+      <div class="livewrap hide" id="liveWrap">
+        <video id="vid" playsinline muted autoplay></video>
+        <div class="band" id="band"><b></b><b></b><b></b><b></b><em></em></div>
+        <div class="badge" id="badge"><s></s><span id="badgeTxt"></span></div>
+        <div class="livebtns">
+          <button id="bandBtn">▤</button>
+          <button id="torchBtn" class="hide">⚡</button>
+          <button id="stopBtn" data-i18n="stopLive">停止</button>
+        </div>
+      </div>
+      <div class="caught hide" id="caught"></div>
+      <div class="livefoot hide" id="liveFoot">
+        <button class="act slim" id="keepBtn" data-i18n="keep">存为笔记</button>
+        <button class="act ghost slim" id="wipeBtn" data-i18n="wipe">清空</button>
+      </div>
+    </div>
+
+    <!-- photo -->
+    <div id="shotPane" class="hide">
+    <div class="grid2">
+      <button class="act" id="camBtn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="3.4"/></svg>
+        <span data-i18n="shoot">拍照识别</span>
+      </button>
+      <button class="act ghost" id="fileBtn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>
+        <span data-i18n="pick">选择图片</span>
+      </button>
+    </div>
+    <div class="hintline" id="capHint"></div>
+
+    <input type="file" id="camIn" accept="image/*" capture="environment" class="hide">
+    <input type="file" id="fileIn" accept="image/*" multiple class="hide">
+    <input type="file" id="restoreIn" accept="application/json,.json" class="hide">
+
+    <div class="stage hide" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="bracket"><i></i><i></i><i></i><i></i></div>
+      <div class="sel" id="sel"></div>
+      <div class="sweep"></div>
+    </div>
+
+    <div class="toolrow hide" id="tools">
+      <button class="act slim" id="runBtn" data-i18n="run">识别文字</button>
+      <button class="act ghost slim" id="rotBtn" data-i18n="rotate">旋转</button>
+      <button class="act ghost slim" id="clrSelBtn" data-i18n="clrSel">清除选区</button>
+      <button class="act ghost slim" id="dropBtn" data-i18n="drop">丢弃</button>
+    </div>
+    </div><!-- /shotPane -->
+
+    <div class="prog" id="prog"><div class="bar"><i id="progBar"></i></div><div class="txt" id="progTxt"></div></div>
+    <div class="alert" id="alert"><b id="alertT"></b><span id="alertM"></span><br><button id="alertBtn" data-i18n="retry">重试</button></div>
+  </section>
+
+  <!-- result -->
+  <div class="eyebrow hide" id="resEyebrow"><span data-i18n="secResult">识别结果</span></div>
+  <section class="card hide" id="resCard">
+    <div class="lines" id="lines"></div>
+    <textarea class="edit" id="editArea" spellcheck="false"></textarea>
+    <div class="meta" id="resMeta"></div>
+    <div style="padding:0 12px 12px;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="act slim" id="saveBtn" style="flex:2 1 160px" data-i18n="save">存为笔记</button>
+      <button class="act ghost slim" id="moreBtn" style="flex:1 1 110px" data-i18n="addPage">继续加页</button>
+      <button class="act ghost slim" id="copyBtn" style="flex:1 1 90px" data-i18n="copy">复制</button>
+    </div>
+  </section>
+
+  <!-- notes -->
+  <div class="eyebrow"><span data-i18n="secNotes">笔记</span></div>
+  <div style="margin-bottom:8px"><input class="search" id="q" data-i18n-ph="searchPh" placeholder="搜索笔记内容…"></div>
+  <section class="card" id="noteList"></section>
+
+</main>
+
+<div class="dock">
+  <div class="inner">
+    <span class="count" id="selCount">0</span>
+    <button id="exTxt">TXT</button>
+    <button id="exMd">MD</button>
+    <button id="exCsv">CSV</button>
+    <button class="primary" id="exShare" data-i18n="share">分享</button>
+    <button id="allBtn" data-i18n="selAll">全选</button>
+  </div>
+</div>
+
+<!-- settings sheet -->
+<div class="sheet" id="sheet">
+  <div class="panel">
+    <h2 data-i18n="set">设置</h2>
+
+    <div class="field">
+      <label data-i18n="langpack">识别语言包</label>
+      <select id="packSel">
+        <option value="chi_sim+eng">简体中文 + English</option>
+        <option value="chi_tra+eng">繁體中文 + English</option>
+        <option value="chi_sim+chi_tra+eng">简 + 繁 + English</option>
+        <option value="eng">English only（最快）</option>
+        <option value="chi_sim">仅简体中文</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label data-i18n="layout">版面模式</label>
+      <select id="psmSel">
+        <option value="3" data-i18n="psm3">自动分栏（默认）</option>
+        <option value="6" data-i18n="psm6">整块段落（药瓶标签、说明书）</option>
+        <option value="7" data-i18n="psm7">单行文字</option>
+        <option value="11" data-i18n="psm11">零散文字（招牌、表格）</option>
+      </select>
+    </div>
+
+    <div class="switch"><input type="checkbox" id="optConfirm"><span data-i18n="optConfirm">实时模式：读到两次才收录（更干净）</span></div>
+    <div class="switch"><input type="checkbox" id="optBin"><span data-i18n="optBin">高对比预处理（反光、旧标签）</span></div>
+    <div class="switch"><input type="checkbox" id="optTidy"><span data-i18n="optTidy">整理中文空格与空行</span></div>
+    <div class="switch"><input type="checkbox" id="optThumb"><span data-i18n="optThumb">笔记保存缩略图</span></div>
+
+    <div class="field" style="margin-top:16px">
+      <label data-i18n="offline">离线包</label>
+      <div class="small" id="offState" style="margin-bottom:8px"></div>
+      <div class="toolrow">
+        <button class="act slim" id="preBtn" data-i18n="preload">预载离线包</button>
+        <button class="act ghost slim" id="chkBtn" data-i18n="recheck">重新检查</button>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:16px">
+      <label data-i18n="backup">备份</label>
+      <div class="toolrow">
+        <button class="act ghost slim" id="expJson" data-i18n="expJson">导出 JSON 备份</button>
+        <button class="act ghost slim" id="impJson" data-i18n="impJson">导入 JSON</button>
+      </div>
+    </div>
+
+    <p class="small" id="aboutTxt"></p>
+    <button class="act ghost slim" id="closeSheet" style="margin-top:8px" data-i18n="close">关闭</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ==========================================================================
+   镜读 LensRead — offline-first bilingual OCR note PWA
+   NAMESPACE      : lensread
+   CACHE_VERSION  : lensread-v1.0.0-20260731
+   Engine         : Tesseract.js 5 (chi_sim / chi_tra / eng)
+   Data integrity : engine failures are shown loudly; low-confidence lines are
+                    flagged and never silently presented as clean text.
+   ========================================================================== */
+(function(){
+'use strict';
+
+var NS = 'lensread';
+var K_NOTES = NS + '.notes.v1';
+var K_SET   = NS + '.settings.v1';
+var VERSION = 'v1.0.0-20260731';
+
+/* ---------- i18n ---------- */
+var I18N = {
+  zh:{
+    brand:'镜读', set:'设置', close:'关闭', retry:'重试',
+    secCapture:'取像', secResult:'识别结果', secNotes:'笔记',
+    shoot:'拍照识别', pick:'选择图片', run:'识别文字', rotate:'旋转',
+    clrSel:'清除选区', drop:'丢弃', save:'存为笔记', addPage:'继续加页', copy:'复制',
+    share:'分享', selAll:'全选', selNone:'取消',
+    searchPh:'搜索笔记内容…',
+    hintDrag:'在图上拖动可框选一段文字；不框选则识别整张。',
+    hintPaste:'也可直接按 Ctrl+V 贴上截图。',
+    langpack:'识别语言包', layout:'版面模式',
+    psm3:'自动分栏（默认）', psm6:'整块段落（药瓶标签、说明书）', psm7:'单行文字', psm11:'零散文字（招牌、表格）',
+    optConfirm:'实时模式：读到两次才收录（更干净）',
+    optBin:'高对比预处理（反光、旧标签）', optTidy:'整理中文空格与空行', optThumb:'笔记保存缩略图',
+    backup:'备份', expJson:'导出 JSON 备份', impJson:'导入 JSON',
+    loadEngine:'正在下载识别引擎…', loadLang:'正在下载语言包（首次较久）…',
+    recog:'识别中…', done:'识别完成',
+    engineFailT:'识别引擎未就绪', 
+    engineFailM:'无法下载识别引擎或语言包。首次使用必须联网一次，之后语言包会留在本机。请检查网络后重试。',
+    noText:'这张图没有读到文字。换个角度、把镜头拉近，或在设置里改用「整块段落」模式。',
+    saved:'已存为笔记', copied:'已复制', deleted:'已删除',
+    emptyT:'还没有笔记', emptyM:'拍一张药瓶标签、送货单或说明书，文字会存在这里。',
+    noneSel:'请先勾选要导出的笔记',
+    confAvg:'平均置信度', lowLines:'低置信度 %n 行', pages:'%n 页',
+    lowWarn:'标红的行请人工核对后再使用。',
+    delAsk:'删除这条笔记？',
+    quotaT:'存储空间已满',
+    quotaM:'浏览器本机存储已满，这条笔记没有存进去。请先导出备份并删除旧笔记，或在设置里关掉缩略图。',
+    restoreOk:'已导入 %n 条笔记', restoreBad:'文件格式不对，没有导入任何东西。',
+    about:'镜读 LensRead ' + VERSION + ' · 单文件离线 PWA。引擎与语言包都放在本仓库的 vendor/ 里，不靠外部 CDN。首次打开时按「预载离线包」（约 8–9MB），之后进园区没信号也能用。笔记只存在这台设备的浏览器里，不上传任何服务器 — 请定期导出备份。',
+    noCam:'此页面从 file:// 打开，浏览器不允许直接开镜头。「拍照识别」仍可调用系统相机。',
+    offline:'离线包', preload:'预载离线包', recheck:'重新检查',
+    offReady:'离线就绪 — 引擎与语言包都已存在本机，进园区断网也能用。',
+    offPartial:'离线未完成 — 还差 %n 个文件。请在有网时按「预载离线包」。',
+    offNone:'尚未预载 — 现在还需要联网。有 WiFi 时按「预载离线包」，约 %s。',
+    offNoSW:'此页面不是从 https:// 打开，无法预载离线包。请部署到 GitHub Pages 后再用手机打开。',
+    offLoading:'预载中 %n/%t …',
+    offDone:'离线包已备好',
+    offFail:'预载失败：%s 下载不到。请检查 vendor 资料夹有没有推上 GitHub。',
+    cdnWarnT:'正在用网络版引擎',
+    cdnWarnM:'仓库里的 vendor 资料夹没找到，现在临时从 CDN 载入。断网就会失灵 — 请确认 vendor/ 已推上 GitHub Pages。',
+    mLive:'实时取字', mShot:'拍照识别', startLive:'开始取字', stopLive:'停止',
+    keep:'存为笔记', wipe:'清空',
+    hintLive:'把文字对进框里，停稳一秒就会自动读出来，不用按快门。',
+    stAim:'对准文字', stMove:'请停稳', stBlur:'对焦中', stSteady:'稳定', stRead:'读取中', stWarm:'引擎准备中',
+    caughtN:'已读到 %n 行 · 点 × 删掉不要的',
+    liveNoneT:'镜头打不开',
+    liveNoneM:'浏览器不给这个页面用镜头。请从 https:// 网址打开（GitHub Pages 可以），并在弹出的提示里允许相机；或改用「拍照识别」。',
+    liveDenyM:'相机权限被拒绝了。请到浏览器网站设置里把相机改成「允许」，再重新开始；或改用「拍照识别」。',
+    nothingKept:'还没读到任何文字'
+  },
+  en:{
+    brand:'LensRead', set:'Settings', close:'Close', retry:'Retry',
+    secCapture:'Capture', secResult:'Recognised text', secNotes:'Notes',
+    shoot:'Take photo', pick:'Choose image', run:'Read text', rotate:'Rotate',
+    clrSel:'Clear box', drop:'Discard', save:'Save as note', addPage:'Add page', copy:'Copy',
+    share:'Share', selAll:'Select all', selNone:'Clear',
+    searchPh:'Search notes…',
+    hintDrag:'Drag on the image to box one block of text. No box reads the whole image.',
+    hintPaste:'On a computer you can also paste a screenshot with Ctrl+V.',
+    langpack:'Language packs', layout:'Page layout',
+    psm3:'Auto columns (default)', psm6:'Single block (labels, leaflets)', psm7:'Single line', psm11:'Scattered text (signs, tables)',
+    optConfirm:'Live mode: keep a line only after two matching reads',
+    optBin:'High-contrast pre-processing (glare, faded labels)', optTidy:'Tidy Chinese spacing and blank lines', optThumb:'Keep a thumbnail with each note',
+    backup:'Backup', expJson:'Export JSON backup', impJson:'Import JSON',
+    loadEngine:'Downloading the OCR engine…', loadLang:'Downloading language packs (first run is slow)…',
+    recog:'Reading…', done:'Done',
+    engineFailT:'OCR engine not ready',
+    engineFailM:'The engine or language pack could not be downloaded. The first run needs internet once; after that the packs stay on this device. Check the connection and retry.',
+    noText:'No text was found in this image. Move closer, change the angle, or switch to "Single block" in Settings.',
+    saved:'Saved as note', copied:'Copied', deleted:'Deleted',
+    emptyT:'No notes yet', emptyM:'Photograph a chemical label, delivery order or leaflet — the text lands here.',
+    noneSel:'Tick the notes you want to export first',
+    confAvg:'mean confidence', lowLines:'%n low-confidence lines', pages:'%n pages',
+    lowWarn:'Check the red lines by eye before you rely on them.',
+    delAsk:'Delete this note?',
+    quotaT:'Device storage is full',
+    quotaM:'Browser storage is full, so this note was not saved. Export a backup and delete old notes, or turn off thumbnails in Settings.',
+    restoreOk:'Imported %n notes', restoreBad:'That file is not a LensRead backup. Nothing was imported.',
+    about:'LensRead ' + VERSION + ' · single-file offline PWA. The engine and language packs are served from the vendor/ folder in this repo, not a CDN. Tap Preload offline pack once (about 8–9MB) and it keeps working in the orchard with no signal. Notes live only in this browser on this device and are never uploaded — export a backup now and then.',
+    noCam:'This page was opened from file://, so the browser blocks the live lens. "Take photo" still opens the system camera.',
+    offline:'Offline pack', preload:'Preload offline pack', recheck:'Re-check',
+    offReady:'Offline ready — engine and language packs are on this device. It will work in the orchard with no signal.',
+    offPartial:'Incomplete — %n files still missing. Tap Preload while you have a connection.',
+    offNone:'Not preloaded yet — the app still needs the network. Tap Preload on WiFi, about %s.',
+    offNoSW:'This page is not served over https://, so the pack cannot be preloaded. Deploy to GitHub Pages and open it there.',
+    offLoading:'Preloading %n/%t …',
+    offDone:'Offline pack is ready',
+    offFail:'Preload failed: %s could not be downloaded. Check that the vendor folder was pushed to GitHub.',
+    cdnWarnT:'Running on the network engine',
+    cdnWarnM:'The vendor folder was not found in the repo, so the engine was loaded from a CDN. It will fail without signal — check that vendor/ is deployed to GitHub Pages.',
+    mLive:'Live reading', mShot:'Photo', startLive:'Start reading', stopLive:'Stop',
+    keep:'Save as note', wipe:'Clear',
+    hintLive:'Hold the text inside the band. It reads by itself once the image steadies — no shutter button.',
+    stAim:'Aim at text', stMove:'Hold still', stBlur:'Focusing', stSteady:'Steady', stRead:'Reading', stWarm:'Warming engine',
+    caughtN:'%n lines read · tap × to drop one',
+    liveNoneT:'Cannot open the lens',
+    liveNoneM:'The browser will not give this page the camera. Open it from an https:// address (GitHub Pages works) and allow the camera when prompted, or use Photo mode instead.',
+    liveDenyM:'Camera permission was denied. Set the camera to Allow in your browser site settings and start again, or use Photo mode instead.',
+    nothingKept:'Nothing has been read yet'
+  }
+};
+var lang = 'zh';
+function T(k){ return (I18N[lang] && I18N[lang][k]) || I18N.zh[k] || k; }
+
+/* ---------- tiny helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function pad(n){ return n<10 ? '0'+n : ''+n; }
+function stamp(d){ d=d||new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+pad(d.getDate()); }
+function timeStr(ts){
+  var d=new Date(ts);
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+var toastTimer;
+function toast(msg){
+  var t=$('toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('on'); },2200);
+}
+function loud(title,msg,onRetry){
+  $('alertT').textContent=title; $('alertM').textContent=msg;
+  $('alert').classList.add('on');
+  $('alertBtn').style.display = onRetry ? '' : 'none';
+  $('alertBtn').onclick = function(){ hideLoud(); if(onRetry) onRetry(); };
+}
+function notice(msg){
+  $('alertT').textContent=''; $('alertM').textContent=msg;
+  $('alertBtn').style.display='none';
+  $('alert').classList.add('on');
+}
+function hideLoud(){ $('alert').classList.remove('on'); }
+
+/* ---------- settings ---------- */
+var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', confirm:true };
+try{ var raw=localStorage.getItem(K_SET); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){}
+lang = S.lang==='en' ? 'en' : 'zh';
+function saveSet(){ try{ localStorage.setItem(K_SET, JSON.stringify(S)); }catch(e){} }
+
+/* ---------- notes store ---------- */
+var notes = [];
+try{ var rn=localStorage.getItem(K_NOTES); if(rn) notes=JSON.parse(rn)||[]; }catch(e){ notes=[]; }
+function persist(){
+  try{ localStorage.setItem(K_NOTES, JSON.stringify(notes)); return true; }
+  catch(e){ loud(T('quotaT'), T('quotaM')); return false; }
+}
+
+/* ---------- language paint ---------- */
+function paint(){
+  document.documentElement.lang = lang==='en' ? 'en' : 'zh-CN';
+  $('brandName').textContent = T('brand');
+  $('langBtn').textContent = lang==='zh' ? 'EN' : '中文';
+  var els = document.querySelectorAll('[data-i18n]');
+  for(var i=0;i<els.length;i++){ els[i].textContent = T(els[i].getAttribute('data-i18n')); }
+  var ph = document.querySelectorAll('[data-i18n-ph]');
+  for(var j=0;j<ph.length;j++){ ph[j].placeholder = T(ph[j].getAttribute('data-i18n-ph')); }
+  $('aboutTxt').textContent = T('about') + (canLiveCam() ? '' : ' ' + T('noCam'));
+  $('allBtn').textContent = allSelected() ? T('selNone') : T('selAll');
+  setMode(canLiveCam() && S.mode!=='shot');
+  renderCaught(); renderNotes(); renderResult();
+}
+function canLiveCam(){
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.isSecureContext);
+}
+
+/* ==========================================================================
+   IMAGE PIPELINE
+   ========================================================================== */
+var cv = $('cv'), ctx = cv.getContext('2d', { willReadFrequently:true });
+var srcImg = null;           // current ImageBitmap-ish (HTMLImageElement)
+var rotation = 0;            // 0/90/180/270
+var selRect = null;          // {x,y,w,h} in canvas pixels
+var queue = [];              // pending files for batch
+var MAXPX = 2200;
+
+function loadFile(file){
+  return new Promise(function(res,rej){
+    var url = URL.createObjectURL(file);
+    var im = new Image();
+    im.onload = function(){ URL.revokeObjectURL(url); res(im); };
+    im.onerror = function(){ URL.revokeObjectURL(url); rej(new Error('image')); };
+    im.src = url;
+  });
+}
+
+function drawStage(){
+  if(!srcImg) return;
+  var w = srcImg.naturalWidth || srcImg.width;
+  var h = srcImg.naturalHeight || srcImg.height;
+  var swap = (rotation===90 || rotation===270);
+  var ow = swap ? h : w, oh = swap ? w : h;
+  var k = Math.min(1, MAXPX / Math.max(ow,oh));
+  ow = Math.round(ow*k); oh = Math.round(oh*k);
+  cv.width = ow; cv.height = oh;
+  ctx.save();
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,ow,oh);
+  ctx.translate(ow/2, oh/2);
+  ctx.rotate(rotation*Math.PI/180);
+  var dw = swap ? oh : ow, dh = swap ? ow : oh;
+  ctx.drawImage(srcImg, -dw/2, -dh/2, dw, dh);
+  ctx.restore();
+  if(S.bin) enhanceOn(cv);
+  clearSel();
+  $('stage').classList.remove('hide');
+  $('tools').classList.remove('hide');
+}
+
+/* grayscale + local contrast stretch — helps glare and faded print */
+function enhanceOn(c){
+  var g = c.getContext('2d', { willReadFrequently:true });
+  var d = g.getImageData(0,0,c.width,c.height), p = d.data;
+  var i, v, lo=255, hi=0;
+  for(i=0;i<p.length;i+=4){
+    v = (p[i]*0.299 + p[i+1]*0.587 + p[i+2]*0.114)|0;
+    p[i]=p[i+1]=p[i+2]=v;
+    if(v<lo) lo=v; if(v>hi) hi=v;
+  }
+  var span = Math.max(1, hi-lo);
+  for(i=0;i<p.length;i+=4){
+    v = ((p[i]-lo)*255/span)|0;
+    v = v<0?0:(v>255?255:v);
+    v = v<105 ? Math.round(v*0.55) : (v>150 ? Math.min(255, Math.round(v*1.18)) : v);
+    p[i]=p[i+1]=p[i+2]=v;
+  }
+  g.putImageData(d,0,0);
+}
+
+/* ---------- selection box ---------- */
+var dragging=false, dragStart=null;
+function stagePoint(ev){
+  var r = cv.getBoundingClientRect();
+  var sx = cv.width / r.width, sy = cv.height / r.height;
+  var t = ev.touches ? ev.touches[0] : ev;
+  return { x:(t.clientX-r.left)*sx, y:(t.clientY-r.top)*sy, cx:t.clientX-r.left, cy:t.clientY-r.top };
+}
+function showSel(a,b){
+  var el=$('sel'), r=cv.getBoundingClientRect();
+  var x=Math.min(a.cx,b.cx), y=Math.min(a.cy,b.cy);
+  var w=Math.abs(a.cx-b.cx), h=Math.abs(a.cy-b.cy);
+  el.style.left=x+'px'; el.style.top=y+'px'; el.style.width=w+'px'; el.style.height=h+'px';
+  el.classList.add('on');
+  var sx=cv.width/r.width, sy=cv.height/r.height;
+  selRect = { x:Math.round(x*sx), y:Math.round(y*sy), w:Math.round(w*sx), h:Math.round(h*sy) };
+}
+function clearSel(){ selRect=null; $('sel').classList.remove('on'); }
+cv.addEventListener('pointerdown', function(e){
+  if(!srcImg) return;
+  dragging=true; dragStart=stagePoint(e); cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', function(e){
+  if(!dragging) return;
+  e.preventDefault(); showSel(dragStart, stagePoint(e));
+});
+cv.addEventListener('pointerup', function(e){
+  if(!dragging) return; dragging=false;
+  if(selRect && (selRect.w<24 || selRect.h<14)) clearSel();
+});
+cv.addEventListener('pointercancel', function(){ dragging=false; });
+
+/* returns a canvas holding exactly what should be read */
+function targetCanvas(){
+  if(!selRect) return cv;
+  var c=document.createElement('canvas');
+  c.width=selRect.w; c.height=selRect.h;
+  c.getContext('2d').drawImage(cv, selRect.x, selRect.y, selRect.w, selRect.h, 0,0, selRect.w, selRect.h);
+  return c;
+}
+function thumbData(){
+  if(!S.thumb || !srcImg) return '';
+  try{
+    var c=document.createElement('canvas'), side=180;
+    c.width=side; c.height=side;
+    var g=c.getContext('2d');
+    var k=Math.max(side/cv.width, side/cv.height);
+    var w=cv.width*k, h=cv.height*k;
+    g.drawImage(cv,(side-w)/2,(side-h)/2,w,h);
+    return c.toDataURL('image/jpeg',0.55);
+  }catch(e){ return ''; }
+}
+
+/* ==========================================================================
+   OCR ENGINE
+   ========================================================================== */
+/* All engine assets are served from this repo — see /vendor and fetch-vendor.sh.
+   The CDN entries are a last-resort net only; if one is used the app says so
+   out loud, because it means the offline pack did not deploy. */
+var VENDOR = 'vendor/';
+var CDN = [
+  VENDOR + 'tesseract.min.js',
+  'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'
+];
+var usingCdn = false;
+var scriptReady=null, worker=null, workerPack=null, workerPsm=null;
+
+/* WebAssembly SIMD test — decides which core file we need */
+function simdOK(){
+  try{
+    return WebAssembly.validate(new Uint8Array([
+      0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11
+    ]));
+  }catch(e){ return false; }
+}
+function coreFile(){
+  return VENDOR + (simdOK() ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js');
+}
+function packLangs(){ return S.pack.split('+'); }
+function assetList(){
+  var a = [VENDOR+'tesseract.min.js', VENDOR+'worker.min.js', coreFile()];
+  packLangs().forEach(function(l){ a.push(VENDOR + l + '.traineddata.gz'); });
+  return a;
+}
+
+function loadScript(i){
+  i=i||0;
+  return new Promise(function(res,rej){
+    if(window.Tesseract) return res();
+    if(i>=CDN.length) return rej(new Error('cdn'));
+    var s=document.createElement('script');
+    s.src=CDN[i]; s.async=true;
+    s.onload=function(){ if(i>0) usingCdn=true; res(); };
+    s.onerror=function(){ res(loadScript(i+1)); };
+    document.head.appendChild(s);
+  });
+}
+function ensureScript(){
+  if(!scriptReady) scriptReady = loadScript(0).then(function(){
+    if(!window.Tesseract) throw new Error('cdn');
+  }).catch(function(e){ scriptReady=null; throw e; });
+  return scriptReady;
+}
+
+function progress(pct,label){
+  $('prog').classList.add('on');
+  $('progBar').style.width = Math.max(2,Math.min(100,Math.round(pct*100)))+'%';
+  $('progTxt').textContent = label;
+}
+function progressOff(){ $('prog').classList.remove('on'); $('progBar').style.width='0'; }
+
+function getWorker(){
+  if(worker && workerPack===S.pack && workerPsm===S.psm) return Promise.resolve(worker);
+  var kill = worker ? worker.terminate().catch(function(){}) : Promise.resolve();
+  return kill.then(function(){
+    worker=null;
+    progress(0.05, T('loadEngine'));
+    return ensureScript();
+  }).then(function(){
+    progress(0.15, T('loadLang'));
+    return window.Tesseract.createWorker(S.pack, 1, {
+      workerPath: VENDOR + 'worker.min.js',
+      corePath:   VENDOR.replace(/\/$/,''),   /* directory → picks the SIMD/plain LSTM core */
+      langPath:   VENDOR.replace(/\/$/,''),   /* <langPath>/<lang>.traineddata.gz          */
+      gzip: true,
+      logger:function(m){
+        if(m.status==='loading language traineddata' || m.status==='loading tesseract core'){
+          progress(0.15 + (m.progress||0)*0.45, T('loadLang'));
+        } else if(m.status==='initializing api' || m.status==='initialized api'){
+          progress(0.62, T('loadLang'));
+        } else if(m.status==='recognizing text'){
+          if(!liveOn) progress(0.65 + (m.progress||0)*0.35, T('recog'));
+        }
+      }
+    });
+  }).then(function(w){
+    return w.setParameters({
+      tessedit_pageseg_mode: S.psm,
+      preserve_interword_spaces: '1'
+    }).then(function(){
+      worker=w; workerPack=S.pack; workerPsm=S.psm;
+      cdnGuard();
+      return w;
+    });
+  });
+}
+
+/* ---------- text tidy ---------- */
+var CJK = '\\u3000-\\u303f\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\\uff00-\\uffef';
+var reCJKspace = new RegExp('(['+CJK+'])[ \\t]+(?=['+CJK+'])','g');
+function tidy(t){
+  if(!S.tidy) return t.replace(/[ \t]+$/gm,'').trim();
+  var out = t.replace(/\r/g,'');
+  out = out.replace(/[ \t]+$/gm,'');
+  var prev;
+  do { prev=out; out = out.replace(reCJKspace,'$1'); } while(out!==prev);
+  out = out.replace(/\n{3,}/g,'\n\n');
+  return out.trim();
+}
+
+/* ==========================================================================
+   RESULT BUFFER
+   ========================================================================== */
+var result = { lines:[], pages:0, thumbs:[] };   // lines: {text,conf,sep}
+function renderResult(){
+  var has = result.lines.length>0 || $('editArea').value.trim()!=='';
+  $('resCard').classList.toggle('hide', !has);
+  $('resEyebrow').classList.toggle('hide', !has);
+  if(!has) return;
+
+  var html='', low=0, sum=0, n=0;
+  for(var i=0;i<result.lines.length;i++){
+    var L=result.lines[i];
+    if(L.sep){
+      html += '<div class="ln"><div class="conf"></div><div class="t" style="color:#5C6660;font-size:10.5px;letter-spacing:.18em">'+esc(L.text)+'</div></div>';
+      continue;
+    }
+    var c=Math.round(L.conf); sum+=c; n++;
+    var isLow = c<72; if(isLow) low++;
+    html += '<div class="ln'+(isLow?' low':'')+'">'
+          + '<div class="conf">'+c+'<i style="width:'+Math.max(6,Math.round(c*0.34))+'px"></i></div>'
+          + '<div class="t">'+esc(L.text)+'</div></div>';
+  }
+  $('lines').innerHTML = html;
+
+  if(!n){ $('resMeta').innerHTML=''; return; }
+  var avg = Math.round(sum/n);
+  var meta = '<span class="chip '+(avg>=80?'ok':'warn')+'">'+T('confAvg')+' '+avg+'%</span>';
+  if(result.pages>1) meta += '<span class="chip">'+T('pages').replace('%n',result.pages)+'</span>';
+  if(low) meta += '<span class="chip warn">'+T('lowLines').replace('%n',low)+' · '+T('lowWarn')+'</span>';
+  $('resMeta').innerHTML = meta;
+}
+function appendToEditor(block){
+  var ta=$('editArea');
+  ta.value = ta.value.trim() ? (ta.value.replace(/\s+$/,'') + '\n\n' + block) : block;
+}
+function meanConf(){
+  var s=0,n=0;
+  for(var i=0;i<result.lines.length;i++){ if(!result.lines[i].sep){ s+=result.lines[i].conf; n++; } }
+  return n ? Math.round(s/n) : (result.baseConf||0);
+}
+
+/* ---------- run ---------- */
+var busy=false;
+function run(){
+  if(busy || !srcImg) return;
+  busy=true; hideLoud();
+  $('stage').classList.add('busy');
+  $('runBtn').disabled=true;
+
+  getWorker().then(function(w){
+    return w.recognize(targetCanvas());
+  }).then(function(r){
+    var d=r.data, got=[];
+    var lines = (d.lines && d.lines.length) ? d.lines : null;
+    if(lines){
+      for(var i=0;i<lines.length;i++){
+        var t = tidy(lines[i].text||'');
+        if(t) got.push({ text:t, conf:lines[i].confidence });
+      }
+    } else {
+      var whole = tidy(d.text||'');
+      if(whole) got.push({ text:whole, conf:d.confidence });
+    }
+    if(!got.length){
+      notice(T('noText'));
+    } else {
+      result.pages += 1;
+      var block = got.map(function(g){ return g.text; }).join('\n');
+      if(result.pages>1){
+        var sep = '—— ' + (lang==='zh' ? ('第 '+result.pages+' 页') : ('Page '+result.pages)) + ' ——';
+        result.lines.push({ text:sep, conf:0, sep:true });
+        block = sep + '\n' + block;
+      }
+      result.lines = result.lines.concat(got);
+      var th = thumbData(); if(th) result.thumbs.push(th);
+      appendToEditor(block);
+      toast(T('done'));
+    }
+    renderResult();
+  }).catch(function(err){
+    console.error(err);
+    worker=null; scriptReady=null;
+    loud(T('engineFailT'), T('engineFailM'), run);
+  }).then(function(){
+    busy=false; progressOff();
+    $('stage').classList.remove('busy');
+    $('runBtn').disabled=false;
+    nextInQueue();
+  });
+}
+
+function nextInQueue(){
+  if(!queue.length) return;
+  var f=queue.shift();
+  loadFile(f).then(function(im){
+    srcImg=im; rotation=0; drawStage();
+    setTimeout(run, 60);
+  }).catch(function(){ nextInQueue(); });
+}
+
+/* ==========================================================================
+   NOTES
+   ========================================================================== */
+var selected = {};
+function titleOf(text){
+  var lines=text.split('\n');
+  for(var i=0;i<lines.length;i++){
+    var s=lines[i].trim();
+    if(s && s.indexOf('——')!==0) return s.length>44 ? s.slice(0,44)+'…' : s;
+  }
+  return lang==='zh' ? '未命名笔记' : 'Untitled note';
+}
+function saveNote(){
+  var text = $('editArea').value.trim();
+  if(!text) return;
+  var note = {
+    id: 'n'+Date.now()+Math.random().toString(36).slice(2,6),
+    ts: Date.now(),
+    title: titleOf(text),
+    text: text,
+    conf: meanConf(),
+    pack: S.pack,
+    pages: Math.max(1, result.pages),
+    thumb: result.thumbs[0] || ''
+  };
+  notes.unshift(note);
+  if(persist()){
+    toast(T('saved'));
+    resetWork();
+    renderNotes();
+  } else {
+    notes.shift();
+  }
+}
+function resetWork(){
+  result={ lines:[], pages:0, thumbs:[], baseConf:0 };
+  $('editArea').value='';
+  srcImg=null; rotation=0; clearSel();
+  $('stage').classList.add('hide'); $('tools').classList.add('hide');
+  renderResult();
+}
+function renderNotes(){
+  var q = ($('q').value||'').trim().toLowerCase();
+  var list = notes.filter(function(n){
+    if(!q) return true;
+    return (n.title+'\n'+n.text).toLowerCase().indexOf(q)>=0;
+  });
+  var box=$('noteList');
+  if(!list.length){
+    box.innerHTML = '<div class="empty"><b>'+esc(T('emptyT'))+'</b>'+esc(T('emptyM'))+'</div>';
+    updateCount(); return;
+  }
+  var h='';
+  for(var i=0;i<list.length;i++){
+    var n=list[i];
+    h += '<div class="note" data-id="'+n.id+'">'
+       +   '<div class="nhead">'
+       +     '<input type="checkbox" data-sel="'+n.id+'"'+(selected[n.id]?' checked':'')+'>'
+       +     (n.thumb ? '<img class="thumb" src="'+n.thumb+'" alt="">' : '')
+       +     '<div style="min-width:0;flex:1">'
+       +       '<h3>'+esc(n.title)+'</h3>'
+       +       '<div class="sub">'+timeStr(n.ts)+' · '+esc(n.pack)+' · '+n.conf+'%'+(n.pages>1?' · '+n.pages+'p':'')+'</div>'
+       +     '</div>'
+       +   '</div>'
+       +   '<div class="body">'+esc(n.text.slice(0,240))+'</div>'
+       +   '<div class="row">'
+       +     '<button data-act="copy" data-id="'+n.id+'">'+esc(T('copy'))+'</button>'
+       +     '<button data-act="edit" data-id="'+n.id+'">'+(lang==='zh'?'编辑':'Edit')+'</button>'
+       +     '<button data-act="txt" data-id="'+n.id+'">TXT</button>'
+       +     '<button class="danger" data-act="del" data-id="'+n.id+'">'+(lang==='zh'?'删除':'Delete')+'</button>'
+       +   '</div>'
+       + '</div>';
+  }
+  box.innerHTML=h;
+  updateCount();
+}
+function byId(id){ for(var i=0;i<notes.length;i++) if(notes[i].id===id) return notes[i]; return null; }
+function allSelected(){
+  if(!notes.length) return false;
+  for(var i=0;i<notes.length;i++) if(!selected[notes[i].id]) return false;
+  return true;
+}
+function selectedNotes(){
+  var out=[];
+  for(var i=0;i<notes.length;i++) if(selected[notes[i].id]) out.push(notes[i]);
+  return out;
+}
+function updateCount(){
+  var n=selectedNotes().length;
+  $('selCount').textContent = n;
+  $('allBtn').textContent = allSelected() ? T('selNone') : T('selAll');
+}
+
+/* ==========================================================================
+   EXPORT
+   ========================================================================== */
+function download(name, text, mime){
+  var blob = new Blob([text], { type: mime||'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 400);
+}
+function pick(){
+  var sel = selectedNotes();
+  if(sel.length) return sel;
+  toast(T('noneSel'));
+  return null;
+}
+function asTxt(list){
+  return list.map(function(n){
+    return '【'+n.title+'】\n'+timeStr(n.ts)+' · '+n.pack+' · '+n.conf+'%\n\n'+n.text;
+  }).join('\n\n' + new Array(46).join('-') + '\n\n');
+}
+function asMd(list){
+  return '# 镜读 LensRead · '+stamp()+'\n\n' + list.map(function(n){
+    return '## '+n.title+'\n\n`'+timeStr(n.ts)+'` · `'+n.pack+'` · confidence '+n.conf+'%\n\n```\n'+n.text+'\n```';
+  }).join('\n\n');
+}
+function csvCell(s){ return '"'+String(s).replace(/"/g,'""')+'"'; }
+function asCsv(list){
+  var rows=[['time','title','confidence','langpack','pages','text']];
+  list.forEach(function(n){ rows.push([timeStr(n.ts),n.title,n.conf,n.pack,n.pages,n.text]); });
+  return '\ufeff' + rows.map(function(r){ return r.map(csvCell).join(','); }).join('\r\n');
+}
+
+/* ==========================================================================
+   WIRING
+   ========================================================================== */
+$('camBtn').onclick=function(){ $('camIn').click(); };
+$('fileBtn').onclick=function(){ $('fileIn').click(); };
+$('camIn').onchange=function(e){ takeFiles(e.target.files); e.target.value=''; };
+$('fileIn').onchange=function(e){ takeFiles(e.target.files); e.target.value=''; };
+
+function takeFiles(files){
+  if(!files || !files.length) return;
+  hideLoud();
+  var arr=[].slice.call(files);
+  var first=arr.shift();
+  queue=arr;
+  loadFile(first).then(function(im){
+    srcImg=im; rotation=0; drawStage();
+    window.scrollTo({ top:$('stage').offsetTop-70, behavior:'smooth' });
+    if(queue.length) setTimeout(run,80);
+  }).catch(function(){
+    loud(lang==='zh'?'图片打不开':'Cannot open image',
+         lang==='zh'?'这个文件不是浏览器能读的图片格式。':'The browser cannot read this file as an image.');
+  });
+}
+
+document.addEventListener('paste', function(e){
+  var items=(e.clipboardData||{}).items || [];
+  for(var i=0;i<items.length;i++){
+    if(items[i].type && items[i].type.indexOf('image')===0){
+      var f=items[i].getAsFile();
+      if(f){ takeFiles([f]); e.preventDefault(); return; }
+    }
+  }
+});
+
+$('runBtn').onclick=run;
+$('rotBtn').onclick=function(){ rotation=(rotation+90)%360; drawStage(); };
+$('clrSelBtn').onclick=clearSel;
+$('dropBtn').onclick=function(){ queue=[]; resetWork(); };
+$('saveBtn').onclick=saveNote;
+$('moreBtn').onclick=function(){
+  srcImg=null; clearSel();
+  $('stage').classList.add('hide'); $('tools').classList.add('hide');
+  $('camIn').click();
+};
+$('copyBtn').onclick=function(){
+  var t=$('editArea').value;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(function(){ toast(T('copied')); },function(){ legacyCopy(t); });
+  } else legacyCopy(t);
+};
+function legacyCopy(t){
+  var ta=document.createElement('textarea');
+  ta.value=t; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast(T('copied')); }catch(e){}
+  ta.remove();
+}
+
+$('q').oninput=renderNotes;
+
+$('noteList').addEventListener('change', function(e){
+  var id=e.target.getAttribute && e.target.getAttribute('data-sel');
+  if(!id) return;
+  if(e.target.checked) selected[id]=true; else delete selected[id];
+  updateCount();
+});
+$('noteList').addEventListener('click', function(e){
+  var b=e.target.closest && e.target.closest('button[data-act]');
+  if(!b) return;
+  var id=b.getAttribute('data-id'), act=b.getAttribute('data-act');
+  var n=byId(id); if(!n) return;
+  if(act==='copy'){
+    if(navigator.clipboard) navigator.clipboard.writeText(n.text).then(function(){ toast(T('copied')); });
+    else legacyCopy(n.text);
+  } else if(act==='txt'){
+    download(stamp(new Date(n.ts))+'-lensread-'+id+'.txt', asTxt([n]));
+  } else if(act==='del'){
+    if(confirm(T('delAsk'))){
+      notes=notes.filter(function(x){ return x.id!==id; });
+      delete selected[id]; persist(); renderNotes(); toast(T('deleted'));
+    }
+  } else if(act==='edit'){
+    resetWork();
+    result.pages = n.pages||1;
+    result.baseConf = n.conf||0;
+    if(n.thumb) result.thumbs=[n.thumb];
+    $('editArea').value = n.text;
+    notes=notes.filter(function(x){ return x.id!==id; });
+    delete selected[id]; persist();
+    renderResult();
+    renderNotes();
+    window.scrollTo({ top:$('resCard').offsetTop-70, behavior:'smooth' });
+  }
+});
+
+$('allBtn').onclick=function(){
+  if(allSelected()) selected={};
+  else notes.forEach(function(n){ selected[n.id]=true; });
+  renderNotes();
+};
+$('exTxt').onclick=function(){ var l=pick(); if(l) download(stamp()+'-lensread-notes.txt', asTxt(l)); };
+$('exMd').onclick=function(){ var l=pick(); if(l) download(stamp()+'-lensread-notes.md', asMd(l), 'text/markdown;charset=utf-8'); };
+$('exCsv').onclick=function(){ var l=pick(); if(l) download(stamp()+'-lensread-notes.csv', asCsv(l), 'text/csv;charset=utf-8'); };
+$('exShare').onclick=function(){
+  var l=pick(); if(!l) return;
+  var text=asTxt(l);
+  if(navigator.share){
+    navigator.share({ title:'镜读 LensRead · '+stamp(), text:text }).catch(function(){});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){ toast(T('copied')); });
+  } else legacyCopy(text);
+};
+
+/* ---------- settings sheet ---------- */
+$('setBtn').onclick=function(){ $('sheet').classList.add('on'); checkOffline(); };
+$('closeSheet').onclick=function(){ $('sheet').classList.remove('on'); };
+$('sheet').addEventListener('click', function(e){ if(e.target===$('sheet')) $('sheet').classList.remove('on'); });
+$('langBtn').onclick=function(){ lang = lang==='zh'?'en':'zh'; S.lang=lang; saveSet(); paint(); };
+
+$('packSel').value=S.pack; $('psmSel').value=S.psm;
+$('optConfirm').checked=S.confirm;
+$('optConfirm').onchange=function(){ S.confirm=this.checked; saveSet(); };
+$('optBin').checked=S.bin; $('optTidy').checked=S.tidy; $('optThumb').checked=S.thumb;
+$('packSel').onchange=function(){ S.pack=this.value; saveSet(); checkOffline(); };
+$('psmSel').onchange=function(){ S.psm=this.value; saveSet(); };
+$('optBin').onchange=function(){ S.bin=this.checked; saveSet(); if(srcImg) drawStage(); };
+$('optTidy').onchange=function(){ S.tidy=this.checked; saveSet(); };
+$('optThumb').onchange=function(){ S.thumb=this.checked; saveSet(); };
+
+$('expJson').onclick=function(){
+  download(stamp()+'-lensread-backup.json', JSON.stringify({ app:NS, version:VERSION, exported:Date.now(), notes:notes }, null, 1), 'application/json');
+};
+$('impJson').onclick=function(){ $('restoreIn').click(); };
+$('restoreIn').onchange=function(e){
+  var f=e.target.files && e.target.files[0]; e.target.value='';
+  if(!f) return;
+  var fr=new FileReader();
+  fr.onload=function(){
+    try{
+      var d=JSON.parse(fr.result);
+      if(!d || !Array.isArray(d.notes)) throw new Error('shape');
+      var have={}; notes.forEach(function(n){ have[n.id]=1; });
+      var added=0;
+      d.notes.forEach(function(n){
+        if(n && n.id && n.text && !have[n.id]){ notes.push(n); added++; }
+      });
+      notes.sort(function(a,b){ return b.ts-a.ts; });
+      persist(); renderNotes();
+      toast(T('restoreOk').replace('%n',added));
+    }catch(err){ toast(T('restoreBad')); }
+  };
+  fr.readAsText(f);
+};
+
+$('editArea').addEventListener('blur', function(){
+  if(!this.value.trim() && !result.lines.length) renderResult();
+});
+
+/* ==========================================================================
+   LIVE READING — continuous capture, no shutter
+   The band is read ~2x/second, but only when the frame is steady and sharp.
+   A line is kept once it has been read the same way twice, so a single
+   blurred misread never lands in the note.
+   ========================================================================== */
+var vid=$('vid'), stream=null, track=null, liveOn=false, liveBusy=false, liveTimer=null;
+var prevSmall=null, capMap={}, caught=[], capOrd=0, torchOn=false;
+var BANDS=[0.20,0.36,0.58,0.92], bandIx=1;
+
+function setBand(){
+  var h=BANDS[bandIx]*100;
+  var el=$('band');
+  el.style.height=h.toFixed(1)+'%';
+  el.style.top=((100-h)/2).toFixed(1)+'%';
+}
+function badge(state,key){
+  var b=$('badge');
+  b.className='badge'+(state?' '+state:'');
+  $('badgeTxt').textContent=T(key);
+}
+
+function startLive(){
+  if(liveOn) return;
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+    loud(T('liveNoneT'), T('liveNoneM')); return;
+  }
+  if(!window.isSecureContext){ loud(T('liveNoneT'), T('liveNoneM')); return; }
+  hideLoud();
+  badge('', 'stWarm');
+  navigator.mediaDevices.getUserMedia({
+    audio:false,
+    video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1920 }, height:{ ideal:1080 } }
+  }).then(function(s){
+    stream=s; track=s.getVideoTracks()[0];
+    vid.srcObject=s;
+    vid.setAttribute('playsinline','');
+    return vid.play();
+  }).then(function(){
+    liveOn=true; prevSmall=null;
+    $('liveWrap').classList.remove('hide');
+    $('liveBtn').classList.add('hide');
+    setBand();
+    try{
+      var caps = track.getCapabilities ? track.getCapabilities() : {};
+      if(caps.torch) $('torchBtn').classList.remove('hide');
+      if(caps.focusMode && caps.focusMode.indexOf('continuous')>=0){
+        track.applyConstraints({ advanced:[{ focusMode:'continuous' }] }).catch(function(){});
+      }
+    }catch(e){}
+    getWorker().then(function(){ progressOff(); }).catch(function(){
+      loud(T('engineFailT'), T('engineFailM'), function(){ getWorker().catch(function(){}); });
+    });
+    tick();
+  }).catch(function(err){
+    var denied = err && (err.name==='NotAllowedError' || err.name==='SecurityError');
+    loud(T('liveNoneT'), denied ? T('liveDenyM') : T('liveNoneM'));
+  });
+}
+
+function stopLive(){
+  liveOn=false;
+  clearTimeout(liveTimer);
+  if(stream){ stream.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} }); }
+  stream=null; track=null; torchOn=false;
+  vid.srcObject=null;
+  $('liveWrap').classList.add('hide');
+  $('torchBtn').classList.add('hide');
+  $('torchBtn').classList.remove('on');
+  $('liveBtn').classList.remove('hide');
+}
+
+/* crop the band out of the live frame, in video pixels */
+function bandCanvas(){
+  var vw=vid.videoWidth, vh=vid.videoHeight;
+  if(!vw || !vh) return null;
+  var r=vid.getBoundingClientRect();
+  if(!r.width || !r.height) return null;
+  var scale=Math.max(r.width/vw, r.height/vh);          /* object-fit: cover */
+  var sx0=(vw - r.width/scale)/2, sy0=(vh - r.height/scale)/2;
+  var b=$('band').getBoundingClientRect();
+  var sx=sx0+(b.left-r.left)/scale, sy=sy0+(b.top-r.top)/scale;
+  var sw=b.width/scale, sh=b.height/scale;
+  if(sw<10 || sh<8) return null;
+  var k=Math.max(1, Math.min(2.6, 1500/sw));            /* upscale — CJK needs the height */
+  var c=document.createElement('canvas');
+  c.width=Math.round(sw*k); c.height=Math.round(sh*k);
+  var g=c.getContext('2d',{ willReadFrequently:true });
+  g.imageSmoothingQuality='high';
+  g.drawImage(vid, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+
+/* cheap steadiness + focus gate, so we never OCR a smeared frame */
+function metrics(c){
+  var w=120, h=Math.max(8, Math.round(120*c.height/c.width));
+  var s=document.createElement('canvas'); s.width=w; s.height=h;
+  var g=s.getContext('2d',{ willReadFrequently:true });
+  g.drawImage(c,0,0,w,h);
+  var d=g.getImageData(0,0,w,h).data, n=w*h, gray=new Uint8Array(n), i;
+  for(i=0;i<n;i++) gray[i]=(d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114)|0;
+  var sharp=0, cnt=0, x, y, p;
+  for(y=1;y<h-1;y++) for(x=1;x<w-1;x++){
+    p=y*w+x;
+    sharp += Math.abs(4*gray[p]-gray[p-1]-gray[p+1]-gray[p-w]-gray[p+w]);
+    cnt++;
+  }
+  sharp = cnt ? sharp/cnt : 0;
+  var diff=999;
+  if(prevSmall && prevSmall.length===n){
+    var acc=0;
+    for(i=0;i<n;i++) acc += Math.abs(gray[i]-prevSmall[i]);
+    diff = acc/n;
+  }
+  prevSmall=gray;
+  return { sharp:sharp, diff:diff };
+}
+
+function tick(){
+  if(!liveOn) return;
+  var delay=420;
+  if(!liveBusy && !busy){
+    var c=bandCanvas();
+    if(c){
+      var m=metrics(c);
+      if(m.diff>11){ badge('', 'stMove'); }
+      else if(m.sharp<5.5){ badge('', 'stBlur'); }
+      else {
+        badge('steady','stSteady');
+        if(S.bin) enhanceOn(c);
+        readFrame(c);
+        delay=120;
+      }
+    } else badge('', 'stAim');
+  }
+  liveTimer=setTimeout(tick, delay);
+}
+
+function keyOf(t){
+  return t.replace(/\s+/g,'')
+          .replace(/[.,:;!?'"`~^*_\-–—·、，。：；！？（）()\[\]{}<>|\\\/]/g,'')
+          .toLowerCase();
+}
+function readFrame(c){
+  liveBusy=true;
+  badge('reading','stRead');
+  $('band').classList.add('reading');
+  getWorker().then(function(w){
+    return w.recognize(c);
+  }).then(function(r){
+    var lines=(r.data && r.data.lines) || [];
+    var added=0;
+    for(var i=0;i<lines.length;i++){
+      var t=tidy(lines[i].text||'');
+      var conf=lines[i].confidence;
+      if(!t || conf<48) continue;
+      if(t.replace(/\s/g,'').length<2) continue;
+      var k=keyOf(t);
+      if(!k) continue;
+      var hit=capMap[k];
+      if(hit && hit.banned) continue;          /* dropped by hand — stays dropped */
+      if(hit){
+        hit.hits++;
+        if(conf>hit.conf){ hit.conf=conf; hit.text=t; }
+        if(!hit.shown && hit.hits>=(S.confirm?2:1)){ hit.shown=true; hit.fresh=true; added++; }
+      } else {
+        capMap[k]={ key:k, text:t, conf:conf, hits:1, ord:capOrd++, shown:!S.confirm, fresh:!S.confirm };
+        if(!S.confirm) added++;
+      }
+    }
+    if(added) renderCaught();
+  }).catch(function(err){
+    console.error(err);
+    worker=null; scriptReady=null;
+    stopLive();
+    loud(T('engineFailT'), T('engineFailM'), startLive);
+  }).then(function(){
+    liveBusy=false;
+    progressOff();
+    $('band').classList.remove('reading');
+  });
+}
+
+function shownLines(){
+  var out=[], k;
+  for(k in capMap){ if(capMap[k].shown) out.push(capMap[k]); }
+  out.sort(function(a,b){ return a.ord-b.ord; });
+  return out;
+}
+function renderCaught(){
+  var list=shownLines();
+  var box=$('caught');
+  box.classList.toggle('hide', list.length===0);
+  $('liveFoot').classList.toggle('hide', list.length===0);
+  if(!list.length){ box.innerHTML=''; return; }
+  var h='<div class="crow" style="background:#F4F6F2"><div class="cc" style="grid-column:1/-1;letter-spacing:.1em">'
+      + esc(T('caughtN').replace('%n', list.length)) + '</div></div>';
+  for(var i=0;i<list.length;i++){
+    var L=list[i], c=Math.round(L.conf), weak=c<72;
+    h += '<div class="crow'+(weak?' weak':'')+(L.fresh?' fresh':'')+'">'
+       +   '<div class="ct">'+esc(L.text)+'</div>'
+       +   '<div class="cc">'+c+'%'+(L.hits>1?' ×'+L.hits:'')+'</div>'
+       +   '<button class="cx" data-drop="'+esc(L.key)+'" aria-label="remove">×</button>'
+       + '</div>';
+    L.fresh=false;
+  }
+  box.innerHTML=h;
+}
+$('caught').addEventListener('click', function(e){
+  var k=e.target.getAttribute && e.target.getAttribute('data-drop');
+  if(!k) return;
+  if(capMap[k]){ capMap[k].shown=false; capMap[k].banned=true; }
+  renderCaught();
+});
+
+function wipeCaught(){ capMap={}; capOrd=0; prevSmall=null; renderCaught(); }
+function keepCaught(){
+  var list=shownLines();
+  if(!list.length){ toast(T('nothingKept')); return; }
+  var block=list.map(function(L){ return L.text; }).join('\n');
+  result.pages = Math.max(1, result.pages);
+  result.lines = result.lines.concat(list.map(function(L){ return { text:L.text, conf:L.conf }; }));
+  appendToEditor(block);
+  renderResult();
+  wipeCaught();
+  window.scrollTo({ top:$('resCard').offsetTop-70, behavior:'smooth' });
+}
+
+function setMode(live){
+  S.mode = live ? 'live' : 'shot';
+  saveSet();
+  $('mLive').classList.toggle('on', live);
+  $('mShot').classList.toggle('on', !live);
+  $('livePane').classList.toggle('hide', !live);
+  $('shotPane').classList.toggle('hide', live);
+  $('capHint').innerHTML = live
+    ? '<b>'+esc(T('hintLive'))+'</b>'
+    : '<b>'+esc(T('hintDrag'))+'</b><br>'+esc(T('hintPaste'));
+  if(!live) stopLive();
+}
+
+$('mLive').onclick=function(){ setMode(true); };
+$('mShot').onclick=function(){ setMode(false); };
+$('liveBtn').onclick=startLive;
+$('stopBtn').onclick=stopLive;
+$('wipeBtn').onclick=wipeCaught;
+$('keepBtn').onclick=keepCaught;
+$('bandBtn').onclick=function(){ bandIx=(bandIx+1)%BANDS.length; setBand(); prevSmall=null; };
+$('torchBtn').onclick=function(){
+  if(!track) return;
+  torchOn=!torchOn;
+  track.applyConstraints({ advanced:[{ torch:torchOn }] })
+    .then(function(){ $('torchBtn').classList.toggle('on', torchOn); })
+    .catch(function(){ torchOn=false; });
+};
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden && liveOn) stopLive();
+});
+window.addEventListener('pagehide', function(){ if(liveOn) stopLive(); });
+
+/* ==========================================================================
+   OFFLINE PACK — verify and pre-download every engine asset before the farm
+   ========================================================================== */
+function fmtMB(b){ return (b/1048576).toFixed(1)+' MB'; }
+var PACK_BYTES = { 'tesseract.min.js':66695, 'worker.min.js':123724,
+  'tesseract-core-simd-lstm.wasm.js':3938656, 'tesseract-core-lstm.wasm.js':3938276,
+  'chi_sim.traineddata.gz':1718768, 'chi_tra.traineddata.gz':1656239, 'eng.traineddata.gz':2952873 };
+function packSize(){
+  var t=0;
+  assetList().forEach(function(u){ t += PACK_BYTES[u.split('/').pop()] || 0; });
+  return t;
+}
+function checkOffline(){
+  var el=$('offState');
+  if(!('caches' in window) || location.protocol.indexOf('http')!==0){
+    el.textContent=T('offNoSW'); return Promise.resolve(false);
+  }
+  var list=assetList();
+  return Promise.all(list.map(function(u){
+    return caches.match(u).then(function(hit){ return !!hit; })
+      .catch(function(){ return false; });
+  })).then(function(res){
+    var missing=res.filter(function(x){ return !x; }).length;
+    if(missing===0){ el.textContent=T('offReady'); return true; }
+    if(missing===list.length){ el.textContent=T('offNone').replace('%s', fmtMB(packSize())); return false; }
+    el.textContent=T('offPartial').replace('%n', missing); return false;
+  });
+}
+function preloadOffline(){
+  if(!('caches' in window) || location.protocol.indexOf('http')!==0){
+    $('offState').textContent=T('offNoSW'); return;
+  }
+  var list=assetList(), done=0, failed=null;
+  $('preBtn').disabled=true;
+  $('offState').textContent=T('offLoading').replace('%n',0).replace('%t',list.length);
+  var step=list.reduce(function(chain,u){
+    return chain.then(function(){
+      return fetch(u, { cache:'reload' }).then(function(r){
+        if(!r.ok) throw new Error(u);
+        return r.blob();
+      }).then(function(){
+        done++; $('offState').textContent=T('offLoading').replace('%n',done).replace('%t',list.length);
+      });
+    });
+  }, Promise.resolve());
+  step.then(function(){
+    toast(T('offDone'));
+  }).catch(function(err){
+    failed = (err && err.message) || '?';
+    $('offState').textContent=T('offFail').replace('%s', failed.split('/').pop());
+  }).then(function(){
+    $('preBtn').disabled=false;
+    if(!failed) checkOffline();
+  });
+}
+$('preBtn').onclick=preloadOffline;
+$('chkBtn').onclick=checkOffline;
+
+/* if the engine ever comes off a CDN, say so — it means vendor/ is missing */
+function cdnGuard(){
+  if(usingCdn) loud(T('cdnWarnT'), T('cdnWarnM'));
+}
+
+/* ---------- installability ---------- */
+try{
+  var mf = {
+    name:'镜读 LensRead · OCR 笔记', short_name:'镜读', start_url:'.', scope:'.',
+    display:'standalone', background_color:'#EDEFEA', theme_color:'#0E1418', lang:'zh-CN',
+    icons:[{ src:document.querySelector('link[rel=apple-touch-icon]').href, sizes:'180x180', type:'image/svg+xml', purpose:'any' }]
+  };
+  var link=document.createElement('link');
+  link.rel='manifest';
+  link.href=URL.createObjectURL(new Blob([JSON.stringify(mf)],{type:'application/manifest+json'}));
+  document.head.appendChild(link);
+}catch(e){}
+
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){ /* optional */ });
+  });
+}
+
+/* ---------- boot ---------- */
+paint();
+setBand();
+
+/* if the camera was already allowed on this site, open it without a tap.
+   Safari has no camera permission query, so there it stays one tap. */
+if(canLiveCam() && S.mode!=='shot' && navigator.permissions && navigator.permissions.query){
+  try{
+    navigator.permissions.query({ name:'camera' }).then(function(p){
+      if(p.state==='granted') startLive();
+    }).catch(function(){});
+  }catch(e){}
+}
+})();
+</script>
+</body>
+</html>
