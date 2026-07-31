@@ -136,6 +136,11 @@ button.act:active{transform:translateY(1px)}
   border:1px solid rgba(237,239,234,.3);padding:5px 9px;border-radius:999px;cursor:pointer
 }
 .livebtns button.on{background:var(--viridian);border-color:var(--viridian)}
+.shotbox{display:none;height:68vh;max-height:620px;align-items:center;justify-content:center;background:#000;border-radius:var(--r);overflow:hidden;margin-top:12px}
+.shotbox.on{display:flex}
+.shotbox canvas{max-width:100%;max-height:100%;display:block}
+.livewrap.frozen video,.livewrap.frozen .band,.livewrap.frozen .badge{display:none}
+.permrow{margin-bottom:10px}
 .caught{margin-top:10px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden}
 .crow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line-soft)}
 .crow:last-child{border-bottom:0}
@@ -282,6 +287,10 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
   <!-- capture -->
   <div class="eyebrow" data-i18n="secCapture">取像</div>
   <section class="card capture">
+    <div class="permrow">
+      <button class="act" id="liveBtn" data-i18n="startLive">开启镜头</button>
+    </div>
+
     <div class="modes">
       <button id="mLive" class="on" data-i18n="mLive">实时取字</button>
       <button id="mShot" data-i18n="mShot">拍照识别</button>
@@ -289,7 +298,6 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
 
     <!-- live -->
     <div id="livePane">
-      <button class="act" id="liveBtn" data-i18n="startLive">开始取字</button>
       <div class="livewrap hide" id="liveWrap">
         <video id="vid" playsinline muted autoplay></video>
         <div class="band" id="band"><b></b><b></b><b></b><b></b><em></em></div>
@@ -300,11 +308,20 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
           <button id="stopBtn" data-i18n="stopLive">停止</button>
         </div>
       </div>
+      <div class="shotbox" id="shotBox"><canvas id="shotCv"></canvas></div>
+
+      <div class="livefoot hide" id="shootRow">
+        <button class="act slim" id="shootBtn" data-i18n="shoot">立即拍</button>
+        <button class="act ghost slim" id="autoBtn"></button>
+      </div>
+
       <div class="small" id="frameStat" style="margin-top:8px;font-family:var(--mono);font-size:11px"></div>
       <div class="caught hide" id="caught"></div>
+
       <div class="livefoot hide" id="liveFoot">
-        <button class="act slim" id="keepBtn" data-i18n="keep">存为笔记</button>
-        <button class="act ghost slim" id="wipeBtn" data-i18n="wipe">清空</button>
+        <button class="act slim" id="acceptBtn" data-i18n="accept">采用这张</button>
+        <button class="act ghost slim" id="rereadBtn" data-i18n="reread">重读</button>
+        <button class="act ghost slim" id="retakeBtn" data-i18n="retake">重拍</button>
       </div>
     </div>
 
@@ -402,7 +419,6 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
       </select>
     </div>
 
-    <div class="switch"><input type="checkbox" id="optConfirm"><span data-i18n="optConfirm">实时模式：读到两次才收录（更干净）</span></div>
     <div class="switch"><input type="checkbox" id="optBin"><span data-i18n="optBin">高对比预处理（反光、旧标签）</span></div>
     <div class="switch"><input type="checkbox" id="optTidy"><span data-i18n="optTidy">整理中文空格与空行</span></div>
     <div class="switch"><input type="checkbox" id="optThumb"><span data-i18n="optThumb">笔记保存缩略图</span></div>
@@ -473,7 +489,6 @@ var I18N = {
     hintPaste:'也可直接按 Ctrl+V 贴上截图。',
     langpack:'识别语言包', layout:'版面模式',
     psm3:'自动分栏（默认）', psm6:'整块段落（药瓶标签、说明书）', psm7:'单行文字', psm11:'零散文字（招牌、表格）',
-    optConfirm:'实时模式：读到两次才收录（更干净）',
     optBin:'高对比预处理（反光、旧标签）', optTidy:'整理中文空格与空行', optThumb:'笔记保存缩略图',
     backup:'备份', expJson:'导出 JSON 备份', impJson:'导入 JSON',
     loadEngine:'正在下载识别引擎…', loadLang:'正在下载语言包（首次较久）…',
@@ -505,9 +520,14 @@ var I18N = {
     fsRead:'上一帧读到 %n 行', fsKept:'收录 %n', fsDup:'重复 %n', fsWait:'等第二次 %n',
     fsLow:'太模糊 %n', fsShort:'太短 %n',
     rotateT:'请直着拿手机', rotateM:'镜读只在竖屏使用。转回竖屏就会继续读。', stRotate:'请转回竖屏',
-    mLive:'实时取字', mShot:'拍照识别', startLive:'开始取字', stopLive:'停止',
+    shoot:'立即拍', autoOn:'自动拍：开', autoOff:'自动拍：关',
+    accept:'采用这张', reread:'重读', retake:'重拍', accepted:'已加入笔记',
+    stHold:'稳住 — 正在拍', stShot:'已拍下，读取中…',
+    shotRead:'本张读到 %n 行', shotNone:'这张没读到字。靠近一点、开灯，或在设置里改「整块段落」，再按重拍。',
+    shotNoFrame:'镜头还没准备好',
+    mLive:'实时取字', mShot:'拍照识别', startLive:'开启镜头', stopLive:'停止',
     keep:'存为笔记', wipe:'清空',
-    hintLive:'现在整个镜头画面都会读。停稳一秒自动读出，不用按快门。按 ▤ 可缩小取字范围 — 范围越小读得越快。',
+    hintLive:'对准整张标签，停稳一秒会自动拍下一张，只读这一张 — 不会重复。读完可以「采用这张」或「重拍」。',
     stAim:'对准文字', stMove:'请停稳', stBlur:'对焦中', stSteady:'稳定', stRead:'读取中', stWarm:'引擎准备中',
     caughtN:'已读到 %n 行 · 点 × 删掉不要的',
     liveNoneT:'镜头打不开',
@@ -526,7 +546,6 @@ var I18N = {
     hintPaste:'On a computer you can also paste a screenshot with Ctrl+V.',
     langpack:'Language packs', layout:'Page layout',
     psm3:'Auto columns (default)', psm6:'Single block (labels, leaflets)', psm7:'Single line', psm11:'Scattered text (signs, tables)',
-    optConfirm:'Live mode: keep a line only after two matching reads',
     optBin:'High-contrast pre-processing (glare, faded labels)', optTidy:'Tidy Chinese spacing and blank lines', optThumb:'Keep a thumbnail with each note',
     backup:'Backup', expJson:'Export JSON backup', impJson:'Import JSON',
     loadEngine:'Downloading the OCR engine…', loadLang:'Downloading language packs (first run is slow)…',
@@ -558,9 +577,14 @@ var I18N = {
     fsRead:'last frame: %n lines', fsKept:'kept %n', fsDup:'repeat %n', fsWait:'awaiting 2nd read %n',
     fsLow:'too blurred %n', fsShort:'too short %n',
     rotateT:'Hold the phone upright', rotateM:'LensRead is portrait only. Turn it back and reading continues.', stRotate:'Turn upright',
-    mLive:'Live reading', mShot:'Photo', startLive:'Start reading', stopLive:'Stop',
+    shoot:'Take it now', autoOn:'Auto-shoot: on', autoOff:'Auto-shoot: off',
+    accept:'Use this one', reread:'Read again', retake:'Retake', accepted:'Added to the note',
+    stHold:'Hold — taking it', stShot:'Captured, reading…',
+    shotRead:'%n lines on this shot', shotNone:'No text on this shot. Move closer, add light, or switch to Single block in Settings, then retake.',
+    shotNoFrame:'The lens is not ready yet',
+    mLive:'Live reading', mShot:'Photo', startLive:'Open the lens', stopLive:'Stop',
     keep:'Save as note', wipe:'Clear',
-    hintLive:'The whole camera frame is read now. Hold steady for a second and it reads by itself — no shutter. Tap ▤ to narrow the area; a smaller area reads faster.',
+    hintLive:'Aim at the whole label. Hold steady for a second and it takes one still and reads only that — nothing repeats. Then use it or retake.',
     stAim:'Aim at text', stMove:'Hold still', stBlur:'Focusing', stSteady:'Steady', stRead:'Reading', stWarm:'Warming engine',
     caughtN:'%n lines read · tap × to drop one',
     liveNoneT:'Cannot open the lens',
@@ -600,7 +624,7 @@ function notice(msg){
 function hideLoud(){ $('alert').classList.remove('on'); }
 
 /* ---------- settings ---------- */
-var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', confirm:false };
+var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', autoshot:true };
 try{ var raw=localStorage.getItem(K_SET); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){}
 lang = S.lang==='en' ? 'en' : 'zh';
 function saveSet(){ try{ localStorage.setItem(K_SET, JSON.stringify(S)); }catch(e){} }
@@ -625,7 +649,7 @@ function paint(){
   $('aboutTxt').textContent = T('about') + (canLiveCam() ? '' : ' ' + T('noCam'));
   $('allBtn').textContent = allSelected() ? T('selNone') : T('selAll');
   setMode(canLiveCam() && S.mode!=='shot');
-  renderCaught(); renderNotes(); renderResult();
+  renderPending(); autoLabel(); renderNotes(); renderResult();
 }
 function canLiveCam(){
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.isSecureContext);
@@ -1221,8 +1245,6 @@ $('sheet').addEventListener('click', function(e){ if(e.target===$('sheet')) $('s
 $('langBtn').onclick=function(){ lang = lang==='zh'?'en':'zh'; S.lang=lang; saveSet(); paint(); };
 
 $('packSel').value=S.pack; $('psmSel').value=S.psm;
-$('optConfirm').checked=S.confirm;
-$('optConfirm').onchange=function(){ S.confirm=this.checked; saveSet(); };
 $('optBin').checked=S.bin; $('optTidy').checked=S.tidy; $('optThumb').checked=S.thumb;
 $('packSel').onchange=function(){ S.pack=this.value; saveSet(); checkOffline(); };
 $('psmSel').onchange=function(){ S.psm=this.value; saveSet(); };
@@ -1260,33 +1282,39 @@ $('editArea').addEventListener('blur', function(){
 });
 
 /* ==========================================================================
-   LIVE READING — continuous capture, no shutter
-   The band is read ~2x/second, but only when the frame is steady and sharp.
-   A line is kept once it has been read the same way twice, so a single
-   blurred misread never lands in the note.
+   LIVE READING — auto-shutter into an internal photo state
+   The viewfinder watches for a steady, sharp frame and then takes ONE still.
+   That still is held in memory and read once. Nothing is merged across frames,
+   so a line can never arrive twice. The still stays until you accept or retake,
+   which also means it can be re-read after changing language or contrast
+   without pointing the phone at the label again.
    ========================================================================== */
-var vid=$('vid'), stream=null, track=null, liveOn=false, liveBusy=false, liveTimer=null;
-var prevSmall=null, capMap={}, caught=[], capOrd=0, torchOn=false;
+var vid=$('vid'), stream=null, track=null, liveOn=false, liveTimer=null;
+var permGranted=false;          /* asked once per session, then reused silently */
+var scanning=false;             /* true = hunting for a frame; false = frozen on a shot */
+var shotBusy=false, steadyHits=0, torchOn=false;
+var shotCv=$('shotCv'), shotSrc=null;     /* shotSrc = the internal photo state */
+var pending=[];                 /* lines read from the current still */
+var prevSmall=null;
 var BANDS=[0.28,0.52,0.76,0.96], bandIx=3;   /* default: read almost the whole frame */
 
 function setBand(){
-  var h=BANDS[bandIx]*100;
-  var el=$('band');
+  var h=BANDS[bandIx]*100, el=$('band');
   el.style.height=h.toFixed(1)+'%';
   el.style.top=((100-h)/2).toFixed(1)+'%';
 }
 function badge(state,key){
-  var b=$('badge');
-  b.className='badge'+(state?' '+state:'');
+  $('badge').className='badge'+(state?' '+state:'');
   $('badgeTxt').textContent=T(key);
 }
+function autoLabel(){ $('autoBtn').textContent = T(S.autoshot ? 'autoOn' : 'autoOff'); }
 
+/* ---------- camera session ---------- */
 function startLive(){
   if(liveOn) return;
-  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || !window.isSecureContext){
     loud(T('liveNoneT'), T('liveNoneM')); return;
   }
-  if(!window.isSecureContext){ loud(T('liveNoneT'), T('liveNoneM')); return; }
   hideLoud();
   badge('', 'stWarm');
   navigator.mediaDevices.getUserMedia({
@@ -1294,19 +1322,17 @@ function startLive(){
     video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1920 }, height:{ ideal:1080 } }
   }).then(function(s){
     stream=s; track=s.getVideoTracks()[0];
-    vid.srcObject=s;
-    vid.setAttribute('playsinline','');
+    vid.srcObject=s; vid.setAttribute('playsinline','');
     return vid.play();
   }).then(function(){
-    liveOn=true; prevSmall=null;
-    /* Android/Chrome can hold the screen in portrait; iOS Safari cannot, which is
-       why the rotate gate above is the real mechanism. Failure here is expected. */
+    liveOn=true; permGranted=true; prevSmall=null; steadyHits=0;
+    $('liveWrap').classList.remove('hide');
+    $('shootRow').classList.remove('hide');
+    $('liveBtn').classList.add('hide');
+    setBand(); autoLabel();
     try{
       if(screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){});
     }catch(e){}
-    $('liveWrap').classList.remove('hide');
-    $('liveBtn').classList.add('hide');
-    setBand();
     try{
       var caps = track.getCapabilities ? track.getCapabilities() : {};
       if(caps.torch) $('torchBtn').classList.remove('hide');
@@ -1317,26 +1343,32 @@ function startLive(){
     getWorker().then(function(){ progressOff(); }).catch(function(){
       loud(T('engineFailT'), T('engineFailM'), function(){ getWorker().catch(function(){}); });
     });
+    resumeScan();
     tick();
   }).catch(function(err){
     var denied = err && (err.name==='NotAllowedError' || err.name==='SecurityError');
     loud(T('liveNoneT'), denied ? T('liveDenyM') : T('liveNoneM'));
   });
 }
-
 function stopLive(){
-  liveOn=false;
+  liveOn=false; scanning=false;
   clearTimeout(liveTimer);
-  if(stream){ stream.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} }); }
+  if(stream) stream.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} });
   stream=null; track=null; torchOn=false;
   vid.srcObject=null;
   $('liveWrap').classList.add('hide');
+  $('shootRow').classList.add('hide');
   $('torchBtn').classList.add('hide');
   $('torchBtn').classList.remove('on');
   $('liveBtn').classList.remove('hide');
 }
+/* permission already granted this session → reopen silently, no second prompt */
+function ensureLive(){
+  if(liveOn || !permGranted) return;
+  startLive();
+}
 
-/* crop the band out of the live frame, in video pixels */
+/* ---------- crop the band out of the live frame ---------- */
 function bandCanvas(){
   var vw=vid.videoWidth, vh=vid.videoHeight;
   if(!vw || !vh) return null;
@@ -1348,14 +1380,11 @@ function bandCanvas(){
   var b=$('band').getBoundingClientRect();
   var sx=sx0+(b.left-r.left)/scale, sy=sy0+(b.top-r.top)/scale;
   var sw=b.width/scale, sh=b.height/scale;
-  /* the band can overhang the letterboxed edges — clamp back into the frame */
   if(sx<0){ sw+=sx; sx=0; }
   if(sy<0){ sh+=sy; sy=0; }
   if(sx+sw>vw) sw=vw-sx;
   if(sy+sh>vh) sh=vh-sy;
   if(sw<10 || sh<8) return null;
-  /* small crops get upscaled for CJK; a full-frame crop gets capped so a read
-     still lands in a second or two rather than five */
   var k=Math.min(2.6, Math.max(0.6, 1700/Math.max(sw,sh)));
   var c=document.createElement('canvas');
   c.width=Math.round(sw*k); c.height=Math.round(sh*k);
@@ -1365,18 +1394,18 @@ function bandCanvas(){
   return c;
 }
 
-/* cheap steadiness + focus gate, so we never OCR a smeared frame */
+/* ---------- steadiness + focus gate ---------- */
 function metrics(c){
   var w=120, h=Math.max(8, Math.round(120*c.height/c.width));
-  var s=document.createElement('canvas'); s.width=w; s.height=h;
-  var g=s.getContext('2d',{ willReadFrequently:true });
+  var sm=document.createElement('canvas'); sm.width=w; sm.height=h;
+  var g=sm.getContext('2d',{ willReadFrequently:true });
   g.drawImage(c,0,0,w,h);
   var d=g.getImageData(0,0,w,h).data, n=w*h, gray=new Uint8Array(n), i;
   for(i=0;i<n;i++) gray[i]=(d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114)|0;
-  var sharp=0, cnt=0, x, y, p;
+  var sharp=0, cnt=0, x, y, pp;
   for(y=1;y<h-1;y++) for(x=1;x<w-1;x++){
-    p=y*w+x;
-    sharp += Math.abs(4*gray[p]-gray[p-1]-gray[p+1]-gray[p-w]-gray[p+w]);
+    pp=y*w+x;
+    sharp += Math.abs(4*gray[pp]-gray[pp-1]-gray[pp+1]-gray[pp-w]-gray[pp+w]);
     cnt++;
   }
   sharp = cnt ? sharp/cnt : 0;
@@ -1390,141 +1419,137 @@ function metrics(c){
   return { sharp:sharp, diff:diff };
 }
 
-/* guarded: an unsupported matchMedia must not take the whole script down */
+/* ---------- the watch loop: it takes a photo, it does not read the stream ---------- */
 var mqLand = (window.matchMedia
   ? window.matchMedia('(orientation: landscape) and (max-height: 620px)')
   : { matches:false });
+
 function tick(){
   if(!liveOn) return;
+  var delay=380;
   if(mqLand.matches){                    /* rotate gate is covering the screen */
     badge('', 'stRotate');
     liveTimer=setTimeout(tick, 600);
     return;
   }
-  var delay=420;
-  if(!liveBusy && !busy){
+  if(scanning && !shotBusy){
     var c=bandCanvas();
-    if(c){
+    if(!c){ badge('', 'stAim'); }
+    else {
       var m=metrics(c);
-      if(m.diff>11){ badge('', 'stMove'); }
-      else if(m.sharp<5.5){ badge('', 'stBlur'); }
+      if(m.diff>11){ steadyHits=0; badge('', 'stMove'); }
+      else if(m.sharp<5.5){ steadyHits=0; badge('', 'stBlur'); }
       else {
-        badge('steady','stSteady');
-        if(S.bin) enhanceOn(c);
-        readFrame(c);
-        delay=120;
+        steadyHits++;
+        badge('steady','stHold');
+        /* two consecutive good frames = genuinely still, not a lucky one */
+        if(S.autoshot && steadyHits>=2){ takeShot(c); delay=200; }
       }
-    } else badge('', 'stAim');
+    }
   }
   liveTimer=setTimeout(tick, delay);
 }
 
-function keyOf(t){
-  return t.replace(/\s+/g,'')
-          .replace(/[.,:;!?'"`~^*_\-–—·、，。：；！？（）()\[\]{}<>|\\\/]/g,'')
-          .toLowerCase();
+/* ---------- freeze one still into the internal photo state, then read it ---------- */
+function takeShot(c){
+  c = c || bandCanvas();
+  if(!c){ toast(T('shotNoFrame')); return; }
+  shotSrc = c;                                  /* held until accept or retake */
+  scanning=false; steadyHits=0; prevSmall=null;
+  shotCv.width=c.width; shotCv.height=c.height;
+  shotCv.getContext('2d').drawImage(c,0,0);
+  $('shotBox').classList.add('on');
+  $('liveWrap').classList.add('frozen');
+  $('shootRow').classList.add('hide');
+  readShot();
 }
-function readFrame(c){
-  liveBusy=true;
-  badge('reading','stRead');
-  $('band').classList.add('reading');
+
+function readShot(){
+  if(!shotSrc || shotBusy) return;
+  shotBusy=true;
+  $('frameStat').textContent = T('stShot');
+  $('liveFoot').classList.add('hide');
+
+  /* work on a copy so contrast can be re-applied differently on a re-read */
+  var work=document.createElement('canvas');
+  work.width=shotSrc.width; work.height=shotSrc.height;
+  work.getContext('2d').drawImage(shotSrc,0,0);
+  if(S.bin) enhanceOn(work);
+
   getWorker().then(function(w){
-    return w.recognize(c);
+    return w.recognize(work);
   }).then(function(r){
-    var lines = flatLines(r.data);
-    var added=0, nLow=0, nShort=0, nWait=0, nDup=0;
+    var lines=flatLines(r.data), keep=[], low=0, short_=0;
     for(var i=0;i<lines.length;i++){
-      var t=tidy(lines[i].text||'');
-      var conf=lines[i].conf;
-      if(!t){ nShort++; continue; }
-      if(conf<35){ nLow++; continue; }
-      if(t.replace(/\s/g,'').length<2){ nShort++; continue; }
-      var k=keyOf(t);
-      if(!k){ nShort++; continue; }
-      var hit=capMap[k];
-      if(hit && hit.banned) continue;          /* dropped by hand — stays dropped */
-      /* a crisp read is trusted straight away; a marginal one waits for a second look */
-      var instant = !S.confirm || conf>=88;
-      if(hit){
-        hit.hits++;
-        if(conf>hit.conf){ hit.conf=conf; hit.text=t; }
-        if(!hit.shown && (hit.hits>=2 || instant)){ hit.shown=true; hit.fresh=true; added++; }
-        else if(hit.shown) nDup++;
-      } else {
-        capMap[k]={ key:k, text:t, conf:conf, hits:1, ord:capOrd++, shown:instant, fresh:instant };
-        if(instant) added++; else nWait++;
-      }
+      var t=tidy(lines[i].text||''), conf=lines[i].conf;
+      if(!t || t.replace(/\s/g,'').length<2){ short_++; continue; }
+      if(conf<35){ low++; continue; }
+      keep.push({ text:t, conf:conf });
     }
-    frameStat(lines.length, added, nLow, nShort, nWait, nDup);
-    if(added) renderCaught();
+    pending=keep;
+    renderPending();
+    if(!keep.length){
+      $('frameStat').textContent = T('shotNone');
+    } else {
+      var bits=[T('shotRead').replace('%n', keep.length)];
+      if(low)    bits.push(T('fsLow').replace('%n', low));
+      if(short_) bits.push(T('fsShort').replace('%n', short_));
+      $('frameStat').textContent = bits.join(' · ');
+    }
+    $('liveFoot').classList.remove('hide');
   }).catch(function(err){
     console.error(err);
     worker=null; scriptReady=null;
-    stopLive();
-    loud(T('engineFailT'), T('engineFailM'), startLive);
+    loud(T('engineFailT'), T('engineFailM'), readShot);
+    $('liveFoot').classList.remove('hide');
   }).then(function(){
-    liveBusy=false;
+    shotBusy=false;
     progressOff();
-    $('band').classList.remove('reading');
   });
 }
 
-/* every frame reports what it saw and what happened to it */
-function frameStat(read, kept, low, short_, wait, dup){
-  var el=$('frameStat');
-  if(!el) return;
-  var bits=[T('fsRead').replace('%n', read)];
-  if(kept)   bits.push(T('fsKept').replace('%n', kept));
-  if(dup)    bits.push(T('fsDup').replace('%n', dup));
-  if(wait)   bits.push(T('fsWait').replace('%n', wait));
-  if(low)    bits.push(T('fsLow').replace('%n', low));
-  if(short_) bits.push(T('fsShort').replace('%n', short_));
-  el.textContent = bits.join(' · ');
-}
-
-function shownLines(){
-  var out=[], k;
-  for(k in capMap){ if(capMap[k].shown) out.push(capMap[k]); }
-  out.sort(function(a,b){ return a.ord-b.ord; });
-  return out;
-}
-function renderCaught(){
-  var list=shownLines();
+function renderPending(){
   var box=$('caught');
-  box.classList.toggle('hide', list.length===0);
-  $('liveFoot').classList.toggle('hide', list.length===0);
-  if(!list.length){ box.innerHTML=''; return; }
-  var h='<div class="crow" style="background:#F4F6F2"><div class="cc" style="grid-column:1/-1;letter-spacing:.1em">'
-      + esc(T('caughtN').replace('%n', list.length)) + '</div></div>';
-  for(var i=0;i<list.length;i++){
-    var L=list[i], c=Math.round(L.conf), weak=c<72;
-    h += '<div class="crow'+(weak?' weak':'')+(L.fresh?' fresh':'')+'">'
+  box.classList.toggle('hide', pending.length===0);
+  if(!pending.length){ box.innerHTML=''; return; }
+  var h='';
+  for(var i=0;i<pending.length;i++){
+    var L=pending[i], c=Math.round(L.conf), weak=c<72;
+    h += '<div class="crow'+(weak?' weak':'')+'">'
        +   '<div class="ct">'+esc(L.text)+'</div>'
-       +   '<div class="cc">'+c+'%'+(L.hits>1?' ×'+L.hits:'')+'</div>'
-       +   '<button class="cx" data-drop="'+esc(L.key)+'" aria-label="remove">×</button>'
+       +   '<div class="cc">'+c+'%</div>'
+       +   '<button class="cx" data-drop="'+i+'" aria-label="remove">×</button>'
        + '</div>';
-    L.fresh=false;
   }
   box.innerHTML=h;
 }
 $('caught').addEventListener('click', function(e){
-  var k=e.target.getAttribute && e.target.getAttribute('data-drop');
-  if(!k) return;
-  if(capMap[k]){ capMap[k].shown=false; capMap[k].banned=true; }
-  renderCaught();
+  var ix=e.target.getAttribute && e.target.getAttribute('data-drop');
+  if(ix===null || ix===undefined) return;
+  pending.splice(parseInt(ix,10),1);
+  renderPending();
 });
 
-function wipeCaught(){ capMap={}; capOrd=0; prevSmall=null; renderCaught(); }
-function keepCaught(){
-  var list=shownLines();
-  if(!list.length){ toast(T('nothingKept')); return; }
-  var block=list.map(function(L){ return L.text; }).join('\n');
-  result.pages = Math.max(1, result.pages);
-  result.lines = result.lines.concat(list.map(function(L){ return { text:L.text, conf:L.conf }; }));
+/* ---------- accept / retake ---------- */
+function resumeScan(){
+  pending=[]; shotSrc=null;
+  $('caught').classList.add('hide'); $('caught').innerHTML='';
+  $('liveFoot').classList.add('hide');
+  $('shotBox').classList.remove('on');
+  $('liveWrap').classList.remove('frozen');
+  $('shootRow').classList.remove('hide');
+  $('frameStat').textContent='';
+  prevSmall=null; steadyHits=0; scanning=true;
+}
+function acceptShot(){
+  if(!pending.length){ resumeScan(); return; }
+  var block=pending.map(function(L){ return L.text; }).join('\n');
+  result.pages = Math.max(1, result.pages) + (result.lines.length ? 1 : 0);
+  result.lines = result.lines.concat(pending.map(function(L){ return { text:L.text, conf:L.conf }; }));
   appendToEditor(block);
   renderResult();
-  wipeCaught();
-  window.scrollTo({ top:$('resCard').offsetTop-70, behavior:'smooth' });
+  toast(T('accepted'));
+  resumeScan();
 }
 
 function setMode(live){
@@ -1534,19 +1559,24 @@ function setMode(live){
   $('mShot').classList.toggle('on', !live);
   $('livePane').classList.toggle('hide', !live);
   $('shotPane').classList.toggle('hide', live);
+  $('liveBtn').parentNode.classList.toggle('hide', !live);
   $('capHint').innerHTML = live
     ? '<b>'+esc(T('hintLive'))+'</b>'
     : '<b>'+esc(T('hintDrag'))+'</b><br>'+esc(T('hintPaste'));
-  if(!live) stopLive();
+  if(live){ ensureLive(); }
+  else if(liveOn){ scanning=false; }     /* keep the session; do not re-ask later */
 }
 
 $('mLive').onclick=function(){ setMode(true); };
 $('mShot').onclick=function(){ setMode(false); };
 $('liveBtn').onclick=startLive;
 $('stopBtn').onclick=stopLive;
-$('wipeBtn').onclick=wipeCaught;
-$('keepBtn').onclick=keepCaught;
-$('bandBtn').onclick=function(){ bandIx=(bandIx+1)%BANDS.length; setBand(); prevSmall=null; };
+$('shootBtn').onclick=function(){ takeShot(null); };
+$('autoBtn').onclick=function(){ S.autoshot=!S.autoshot; saveSet(); autoLabel(); steadyHits=0; };
+$('acceptBtn').onclick=acceptShot;
+$('retakeBtn').onclick=resumeScan;
+$('rereadBtn').onclick=readShot;
+$('bandBtn').onclick=function(){ bandIx=(bandIx+1)%BANDS.length; setBand(); prevSmall=null; steadyHits=0; };
 $('torchBtn').onclick=function(){
   if(!track) return;
   torchOn=!torchOn;
@@ -1554,8 +1584,13 @@ $('torchBtn').onclick=function(){
     .then(function(){ $('torchBtn').classList.toggle('on', torchOn); })
     .catch(function(){ torchOn=false; });
 };
+/* leaving the tab pauses the hunt; coming back reopens without a second prompt */
 document.addEventListener('visibilitychange', function(){
-  if(document.hidden && liveOn) stopLive();
+  if(document.hidden){
+    if(liveOn){ stopLive(); }
+  } else if(permGranted && S.mode!=='shot'){
+    ensureLive();
+  }
 });
 window.addEventListener('pagehide', function(){ if(liveOn) stopLive(); });
 
