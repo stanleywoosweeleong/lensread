@@ -108,9 +108,9 @@ button.act:active{transform:translateY(1px)}
 .modes button:last-child{border-right:0}
 .modes button.on{background:var(--ink);color:#fff}
 .livewrap{position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-top:12px}
-.livewrap video{display:block;width:100%;height:54vh;max-height:420px;object-fit:cover;background:#000}
+.livewrap video{display:block;width:100%;height:68vh;max-height:620px;object-fit:contain;background:#000}
 .band{
-  position:absolute;left:4%;right:4%;pointer-events:none;
+  position:absolute;left:2%;right:2%;pointer-events:none;
   border-top:1px solid rgba(237,239,234,.55);border-bottom:1px solid rgba(237,239,234,.55);
   box-shadow:0 0 0 2000px rgba(14,20,24,.46)
 }
@@ -148,6 +148,19 @@ button.act:active{transform:translateY(1px)}
 .crow .cx{border:0;background:transparent;color:var(--dim);font-size:15px;line-height:1;cursor:pointer;padding:4px 2px}
 .livefoot{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 .livefoot button{flex:1 1 100px}
+
+/* ── portrait lock ── */
+.rotate{display:none}
+@media (orientation:landscape) and (max-height:620px){
+  body>*:not(.rotate){display:none !important}
+  .rotate{
+    display:flex;position:fixed;inset:0;z-index:200;background:var(--ink);color:var(--paper);
+    align-items:center;justify-content:center;text-align:center;padding:28px
+  }
+  .rotate b{display:block;font-size:18px;font-weight:650;margin-bottom:8px}
+  .rotate span{display:block;font-size:13px;color:#8D9A93;line-height:1.6;max-width:320px}
+  .rotate svg{display:block;margin:0 auto 18px}
+}
 
 /* ── progress ── */
 .prog{margin-top:12px;display:none}
@@ -416,6 +429,18 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
   </div>
 </div>
 
+<div class="rotate" id="rotateGate">
+  <div>
+    <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#0B6B4F" stroke-width="1.6">
+      <rect x="7" y="2" width="10" height="20" rx="2"/>
+      <path d="M3.5 9a9 9 0 0 1 2.4-4.2M20.5 15a9 9 0 0 1-2.4 4.2" stroke="#5B3FA6"/>
+      <path d="M3.5 9l2.6.5M3.5 9l.6-2.6" stroke="#5B3FA6"/>
+    </svg>
+    <b data-i18n="rotateT">请直着拿手机</b>
+    <span data-i18n="rotateM">镜读只在竖屏使用。转回竖屏就会继续读。</span>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -479,9 +504,10 @@ var I18N = {
     cdnWarnM:'仓库里的 vendor 资料夹没找到，现在临时从 CDN 载入。断网就会失灵 — 请确认 vendor/ 已推上 GitHub Pages。',
     fsRead:'上一帧读到 %n 行', fsKept:'收录 %n', fsDup:'重复 %n', fsWait:'等第二次 %n',
     fsLow:'太模糊 %n', fsShort:'太短 %n',
+    rotateT:'请直着拿手机', rotateM:'镜读只在竖屏使用。转回竖屏就会继续读。', stRotate:'请转回竖屏',
     mLive:'实时取字', mShot:'拍照识别', startLive:'开始取字', stopLive:'停止',
     keep:'存为笔记', wipe:'清空',
-    hintLive:'把文字对进框里，停稳一秒就会自动读出来，不用按快门。',
+    hintLive:'现在整个镜头画面都会读。停稳一秒自动读出，不用按快门。按 ▤ 可缩小取字范围 — 范围越小读得越快。',
     stAim:'对准文字', stMove:'请停稳', stBlur:'对焦中', stSteady:'稳定', stRead:'读取中', stWarm:'引擎准备中',
     caughtN:'已读到 %n 行 · 点 × 删掉不要的',
     liveNoneT:'镜头打不开',
@@ -531,9 +557,10 @@ var I18N = {
     cdnWarnM:'The vendor folder was not found in the repo, so the engine was loaded from a CDN. It will fail without signal — check that vendor/ is deployed to GitHub Pages.',
     fsRead:'last frame: %n lines', fsKept:'kept %n', fsDup:'repeat %n', fsWait:'awaiting 2nd read %n',
     fsLow:'too blurred %n', fsShort:'too short %n',
+    rotateT:'Hold the phone upright', rotateM:'LensRead is portrait only. Turn it back and reading continues.', stRotate:'Turn upright',
     mLive:'Live reading', mShot:'Photo', startLive:'Start reading', stopLive:'Stop',
     keep:'Save as note', wipe:'Clear',
-    hintLive:'Hold the text inside the band. It reads by itself once the image steadies — no shutter button.',
+    hintLive:'The whole camera frame is read now. Hold steady for a second and it reads by itself — no shutter. Tap ▤ to narrow the area; a smaller area reads faster.',
     stAim:'Aim at text', stMove:'Hold still', stBlur:'Focusing', stSteady:'Steady', stRead:'Reading', stWarm:'Warming engine',
     caughtN:'%n lines read · tap × to drop one',
     liveNoneT:'Cannot open the lens',
@@ -1240,7 +1267,7 @@ $('editArea').addEventListener('blur', function(){
    ========================================================================== */
 var vid=$('vid'), stream=null, track=null, liveOn=false, liveBusy=false, liveTimer=null;
 var prevSmall=null, capMap={}, caught=[], capOrd=0, torchOn=false;
-var BANDS=[0.20,0.36,0.58,0.92], bandIx=1;
+var BANDS=[0.28,0.52,0.76,0.96], bandIx=3;   /* default: read almost the whole frame */
 
 function setBand(){
   var h=BANDS[bandIx]*100;
@@ -1272,6 +1299,11 @@ function startLive(){
     return vid.play();
   }).then(function(){
     liveOn=true; prevSmall=null;
+    /* Android/Chrome can hold the screen in portrait; iOS Safari cannot, which is
+       why the rotate gate above is the real mechanism. Failure here is expected. */
+    try{
+      if(screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){});
+    }catch(e){}
     $('liveWrap').classList.remove('hide');
     $('liveBtn').classList.add('hide');
     setBand();
@@ -1310,13 +1342,21 @@ function bandCanvas(){
   if(!vw || !vh) return null;
   var r=vid.getBoundingClientRect();
   if(!r.width || !r.height) return null;
-  var scale=Math.max(r.width/vw, r.height/vh);          /* object-fit: cover */
+  /* the video is object-fit: contain, so the whole sensor frame is on screen */
+  var scale=Math.min(r.width/vw, r.height/vh);
   var sx0=(vw - r.width/scale)/2, sy0=(vh - r.height/scale)/2;
   var b=$('band').getBoundingClientRect();
   var sx=sx0+(b.left-r.left)/scale, sy=sy0+(b.top-r.top)/scale;
   var sw=b.width/scale, sh=b.height/scale;
+  /* the band can overhang the letterboxed edges — clamp back into the frame */
+  if(sx<0){ sw+=sx; sx=0; }
+  if(sy<0){ sh+=sy; sy=0; }
+  if(sx+sw>vw) sw=vw-sx;
+  if(sy+sh>vh) sh=vh-sy;
   if(sw<10 || sh<8) return null;
-  var k=Math.max(1, Math.min(2.6, 1500/sw));            /* upscale — CJK needs the height */
+  /* small crops get upscaled for CJK; a full-frame crop gets capped so a read
+     still lands in a second or two rather than five */
+  var k=Math.min(2.6, Math.max(0.6, 1700/Math.max(sw,sh)));
   var c=document.createElement('canvas');
   c.width=Math.round(sw*k); c.height=Math.round(sh*k);
   var g=c.getContext('2d',{ willReadFrequently:true });
@@ -1350,8 +1390,17 @@ function metrics(c){
   return { sharp:sharp, diff:diff };
 }
 
+/* guarded: an unsupported matchMedia must not take the whole script down */
+var mqLand = (window.matchMedia
+  ? window.matchMedia('(orientation: landscape) and (max-height: 620px)')
+  : { matches:false });
 function tick(){
   if(!liveOn) return;
+  if(mqLand.matches){                    /* rotate gate is covering the screen */
+    badge('', 'stRotate');
+    liveTimer=setTimeout(tick, 600);
+    return;
+  }
   var delay=420;
   if(!liveBusy && !busy){
     var c=bandCanvas();
@@ -1577,7 +1626,7 @@ function cdnGuard(){
 try{
   var mf = {
     name:'镜读 LensRead · OCR 笔记', short_name:'镜读', start_url:'.', scope:'.',
-    display:'standalone', background_color:'#EDEFEA', theme_color:'#0E1418', lang:'zh-CN',
+    display:'standalone', orientation:'portrait', background_color:'#EDEFEA', theme_color:'#0E1418', lang:'zh-CN',
     icons:[{ src:document.querySelector('link[rel=apple-touch-icon]').href, sizes:'180x180', type:'image/svg+xml', purpose:'any' }]
   };
   var link=document.createElement('link');
