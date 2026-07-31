@@ -1,7 +1,7 @@
 /* 镜读 LensRead — service worker
    Everything the app needs is same-origin: the shell plus /vendor.
    Bump CACHE_VERSION on every deploy: lensread-<timestamp>. */
-var CACHE_VERSION = 'lensread-v3.7.0-20260731';
+var CACHE_VERSION = 'lensread-v3.8.0-20260731';
 
 /* Precached on install — the minimum to boot and read Chinese + English.
    The non-SIMD core and chi_tra are fetched on demand and cached then. */

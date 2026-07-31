@@ -1747,7 +1747,7 @@ function takeShot(c){
 
 /* Drag on the frozen still to pick one paragraph. The still is already in
    memory, so re-reading a region costs nothing but the OCR itself. */
-var shotSel=null, shotDrag=false, shotStart=null;
+var shotSel=null, shotDrag=false, shotStart=null, lastStat='';
 function shotPoint(e){
   var r=shotCv.getBoundingClientRect();
   return { cx:e.clientX-r.left, cy:e.clientY-r.top, sx:shotCv.width/r.width, sy:shotCv.height/r.height };
@@ -1770,10 +1770,18 @@ shotCv.addEventListener('pointermove', function(e){
 shotCv.addEventListener('pointerup', function(){
   if(!shotDrag) return;
   shotDrag=false;
-  if(shotSel && (shotSel.w<24 || shotSel.h<14)) clearShotSel();
-  else if(shotSel) $('frameStat').textContent = T('selHint');
+  var el=$('shotSel');
+  var cssW=parseFloat(el.style.width)||0, cssH=parseFloat(el.style.height)||0;
+  /* judged on screen size, not canvas pixels: a stray smudge is a tap, not a box */
+  if(cssW<34 || cssH<24){ clearShotSel(); $('frameStat').textContent = lastStat; }
+  else $('frameStat').textContent = T('selHint');
 });
-function clearShotSel(){ shotSel=null; $('shotSel').classList.remove('on'); }
+function clearShotSel(){
+  shotSel=null;
+  var el=$('shotSel');
+  el.classList.remove('on');
+  el.style.width='0px'; el.style.height='0px';
+}
 
 function readShot(){
   if(!shotSrc || shotBusy) return;
@@ -1794,18 +1802,44 @@ function readShot(){
   }
   if(S.bin) enhanceOn(work);
 
+  /* Noise on fabric, wood grain and shadows comes back as 2-3 character
+     fragments at middling confidence. Real text is either longer than that or
+     read with high confidence. Everything else is thrown away. */
+  function junk(t, conf){
+    var body=t.replace(/\s/g,'');
+    if(body.length<2) return true;
+    /* count REAL characters — "-] a." has four glyphs but only one letter */
+    var real=(body.match(/[A-Za-z0-9\u4e00-\u9fff]/g)||[]).length;
+    if(real<2) return true;
+    if(real<4 && conf<80) return true;
+    return false;
+  }
   function harvest(data){
-    var ls=flatLines(data), keep=[], low=0, short_=0, sum=0;
+    var ls=flatLines(data), keep=[], low=0, short_=0;
     for(var i=0;i<ls.length;i++){
       var t=tidy(ls[i].text||''), conf=ls[i].conf;
-      if(!t || t.replace(/\s/g,'').length<2){ short_++; continue; }
+      if(!t || junk(t, conf)){ short_++; continue; }
       if(conf<35){ low++; continue; }
-      keep.push({ text:t, conf:conf }); sum+=conf;
+      keep.push({ text:t, conf:conf });
     }
-    return { keep:keep, low:low, short:short_, mean: keep.length ? sum/keep.length : 0 };
+    return { keep:keep, low:low, short:short_, mean: meanOf(keep) };
   }
-  /* more lines wins; ties go to the more confident read */
-  function score(r){ return r.keep.length*12 + r.mean; }
+  function meanOf(a){
+    if(!a.length) return 0;
+    var s=0; for(var i=0;i<a.length;i++) s+=a[i].conf;
+    return s/a.length;
+  }
+  /* Score by how much CONFIDENT TEXT a pass produced, not how many lines.
+     Line count let a pass emitting a dozen two-letter fragments beat one that
+     read the whole headline correctly. */
+  function score(r){
+    var v=0;
+    for(var i=0;i<r.keep.length;i++){
+      var body=r.keep[i].text.replace(/\s/g,'');
+      v += body.length * (r.keep[i].conf/100) * (r.keep[i].conf/100);
+    }
+    return v;
+  }
   /* union of two passes: keep every distinct line, best confidence wins */
   function mergeRuns(a,b){
     var out=a.keep.slice(), seen={}, i, k, ex;
@@ -1813,12 +1847,15 @@ function readShot(){
     for(i=0;i<b.keep.length;i++){
       k=keyOf(b.keep[i].text); ex=seen[k];
       if(!k) continue;
-      if(!ex){ seen[k]=b.keep[i]; out.push(b.keep[i]); }
+      if(!ex){
+        /* a NEW line from the second pass has to earn its place — an inverted
+           read of cloth or shadow will otherwise pour noise into the result */
+        if(b.keep[i].conf < 70) continue;
+        seen[k]=b.keep[i]; out.push(b.keep[i]);
+      }
       else if(b.keep[i].conf > ex.conf){ ex.text=b.keep[i].text; ex.conf=b.keep[i].conf; }
     }
-    var sum=0;
-    for(i=0;i<out.length;i++) sum+=out[i].conf;
-    return { keep:out, low:a.low+b.low, short:a.short+b.short, mean: out.length ? sum/out.length : 0 };
+    return { keep:out, low:a.low+b.low, short:a.short+b.short, mean: meanOf(out) };
   }
   var passes=1, invUsed=false, sparseWon=false;
 
@@ -1844,7 +1881,7 @@ function readShot(){
       $('frameStat').textContent = T('stPass2');
       return w.recognize(alt).then(function(r3){
         var c=harvest(r3.data);
-        return score(c) > score(cur) ? c : cur;
+        return score(c) > score(cur)*1.25 ? c : cur;      /* clear win only */
       }, function(){ return cur; });
     }).then(function(cur){
       /* Pass 4 (sparse): layout analysis can decide a big dark panel is a
@@ -1858,7 +1895,7 @@ function readShot(){
         return w.recognize(work);
       }).then(function(r4){
         var e=harvest(r4.data);
-        sparseWon = score(e) > score(cur);
+        sparseWon = score(e) > score(cur)*1.25;           /* clear win only */
         return w.setParameters({ tessedit_pageseg_mode:S.psm }).then(function(){
           return sparseWon ? e : cur;
         });
@@ -1878,7 +1915,8 @@ function readShot(){
       if(passes>1)  bits.push(T('fsPass2'));
       if(res.low)   bits.push(T('fsLow').replace('%n', res.low));
       if(res.short) bits.push(T('fsShort').replace('%n', res.short));
-      $('frameStat').textContent = bits.join(' · ');
+      lastStat = bits.join(' · ');
+      $('frameStat').textContent = lastStat;
     }
     updateAcceptLabel();
     $('liveFoot').classList.remove('hide');
