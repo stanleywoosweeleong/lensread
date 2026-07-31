@@ -558,9 +558,9 @@ var I18N = {
     stHold:'稳住 — 正在拍', stShot:'已拍下，读取中…',
     shotRead:'本张读到 %n 行', shotNone:'这张没读到字。靠近一点、开灯，或在设置里改「整块段落」，再按重拍。',
     shotNoFrame:'镜头还没准备好',
-    mLive:'实时取字', mShot:'拍照识别', startLive:'开启镜头', stopLive:'停止',
+    mLive:'实时取字', mShot:'拍照识别', startLive:'开启镜头', scanAgain:'再扫一张', stopLive:'停止',
     keep:'存为笔记', wipe:'清空',
-    hintLive:'对准标签停稳一秒会自动拍一张。字太小就两指捏合放大（或按 1× 按钮），点画面某处可重新对焦。拍完镜头要移开才会再拍；读漏的地方可在照片上框出来按「重读」。',
+    hintLive:'对准标签停稳一秒会自动拍一张。字太小就两指捏合放大（或按 1× 按钮），点画面某处可重新对焦。拍下后镜头会立刻关掉（省电、不磨对焦马达），要再扫就按「再扫一张」。读漏的地方可在照片上框出来按「重读」。',
     stAim:'对准文字', stMove:'请停稳', stBlur:'对焦中', stSteady:'稳定', stRead:'读取中', stWarm:'引擎准备中',
     caughtN:'已读到 %n 行 · 点 × 删掉不要的',
     liveNoneT:'镜头打不开',
@@ -625,9 +625,9 @@ var I18N = {
     stHold:'Hold — taking it', stShot:'Captured, reading…',
     shotRead:'%n lines on this shot', shotNone:'No text on this shot. Move closer, add light, or switch to Single block in Settings, then retake.',
     shotNoFrame:'The lens is not ready yet',
-    mLive:'Live reading', mShot:'Photo', startLive:'Open the lens', stopLive:'Stop',
+    mLive:'Live reading', mShot:'Photo', startLive:'Open the lens', scanAgain:'Scan another', stopLive:'Stop',
     keep:'Save as note', wipe:'Clear',
-    hintLive:'Hold steady for a second and one still is taken and read. Pinch to zoom in on small print, or tap the picture to refocus there. It will not fire again until the lens moves. Missed a paragraph? Drag a box on the photo and tap Read again.',
+    hintLive:'Hold steady for a second and one still is taken and read. Pinch to zoom in on small print, or tap the picture to refocus there. The camera shuts off the moment the still is taken, so nothing runs while you edit. Tap Scan another for the next one. Missed a paragraph? Drag a box on the photo and tap Read again.',
     stAim:'Aim at text', stMove:'Hold still', stBlur:'Focusing', stSteady:'Steady', stRead:'Reading', stWarm:'Warming engine',
     caughtN:'%n lines read · tap × to drop one',
     liveNoneT:'Cannot open the lens',
@@ -692,7 +692,7 @@ function paint(){
   $('aboutTxt').textContent = T('about') + (canLiveCam() ? '' : ' ' + T('noCam'));
   $('allBtn').textContent = allSelected() ? T('selNone') : T('selAll');
   setMode(canLiveCam() && S.mode!=='shot');
-  renderPending(); autoLabel(); updateAcceptLabel(); renderNotes(); renderResult();
+  renderPending(); autoLabel(); updateAcceptLabel(); liveBtnLabel(); renderNotes(); renderResult();
 }
 function canLiveCam(){
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.isSecureContext);
@@ -1385,6 +1385,7 @@ $('editArea').addEventListener('blur', function(){
    without pointing the phone at the label again.
    ========================================================================== */
 var vid=$('vid'), stream=null, track=null, liveOn=false, liveTimer=null;
+var camOn=false;                /* are the camera TRACKS actually running? */
 var permGranted=false;          /* asked once per session, then reused silently */
 var scanning=false;             /* true = hunting for a frame; false = frozen on a shot */
 var shotBusy=false, steadyHits=0, torchOn=false;
@@ -1534,6 +1535,7 @@ function refocus(nx, ny){
     /* drop back to continuous so it keeps tracking after the one-shot lock */
     if(caps.focusMode && caps.focusMode.indexOf('continuous')>=0){
       setTimeout(function(){
+        if(!camOn || !track) return;      /* camera released in the meantime */
         track.applyConstraints({ advanced:[{ focusMode:'continuous' }] }).catch(function(){});
       }, 2200);
     }
@@ -1543,42 +1545,75 @@ function refocus(nx, ny){
   prevSmall=null; steadyHits=0;
 }
 
-/* ---------- camera session ---------- */
-function startLive(){
-  if(liveOn) return;
+/* ---------- camera session ----------
+   The hardware is held only while we are actively hunting for a frame. The
+   moment a still is captured the tracks are stopped: a running track keeps the
+   autofocus motor hunting and the sensor powered even with the video element
+   hidden, which is audible, warms the phone and drains the battery for nothing.
+   Permission survives in permGranted, so reopening never prompts again. */
+function applyCaps(){
+  if(!track) return;
+  try{
+    var caps = track.getCapabilities ? track.getCapabilities() : {};
+    if(caps.torch) $('torchBtn').classList.remove('hide');
+    if(caps.zoom && caps.zoom.max > caps.zoom.min) hwZoom = { min:caps.zoom.min, max:caps.zoom.max };
+    if(caps.focusMode && caps.focusMode.indexOf('continuous')>=0){
+      track.applyConstraints({ advanced:[{ focusMode:'continuous' }] }).catch(function(){});
+    }
+  }catch(e){}
+  setZoom(zoom);              /* a fresh track starts at 1x — restore the level */
+}
+function openCam(){
+  if(camOn) return Promise.resolve();
   if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || !window.isSecureContext){
-    loud(T('liveNoneT'), T('liveNoneM')); return;
+    return Promise.reject(new Error('insecure'));
   }
-  hideLoud();
-  badge('', 'stWarm');
-  navigator.mediaDevices.getUserMedia({
+  return navigator.mediaDevices.getUserMedia({
     audio:false,
     video:{ facingMode:{ ideal:'environment' }, width:{ ideal:2560 }, height:{ ideal:1440 } }
-  }).then(function(s){
-    stream=s; track=s.getVideoTracks()[0];
-    vid.srcObject=s; vid.setAttribute('playsinline','');
+  }).then(function(st){
+    stream=st; track=st.getVideoTracks()[0];
+    vid.srcObject=st; vid.setAttribute('playsinline','');
     return vid.play();
   }).then(function(){
-    liveOn=true; permGranted=true; prevSmall=null; steadyHits=0;
+    camOn=true; permGranted=true;
+    applyCaps();
+  });
+}
+/* release the hardware but keep the granted permission */
+function closeCam(){
+  camOn=false;
+  clearTimeout(liveTimer);
+  if(stream) stream.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} });
+  stream=null; track=null;
+  try{ vid.pause(); }catch(e){}
+  vid.srcObject=null;
+  torchOn=false;
+  $('torchBtn').classList.add('hide');
+  $('torchBtn').classList.remove('on');
+}
+function liveBtnLabel(){
+  $('liveBtn').textContent = T(permGranted ? 'scanAgain' : 'startLive');
+}
+
+function startLive(){
+  if(camOn) return;
+  hideLoud();
+  badge('', 'stWarm');
+  openCam().then(function(){
+    liveOn=true; prevSmall=null; steadyHits=0; needMove=false;
     $('liveWrap').classList.remove('hide');
+    $('shotBox').classList.remove('on');
     $('shootRow').classList.remove('hide');
     $('liveBtn').classList.add('hide');
-    setBand(); autoLabel(); zoomIx=0; applyZoom();
+    setBand(); autoLabel();
     try{
       if(screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){});
-    }catch(e){}
-    try{
-      var caps = track.getCapabilities ? track.getCapabilities() : {};
-      if(caps.torch) $('torchBtn').classList.remove('hide');
-      if(caps.zoom && caps.zoom.max > caps.zoom.min) hwZoom = { min:caps.zoom.min, max:caps.zoom.max };
-      if(caps.focusMode && caps.focusMode.indexOf('continuous')>=0){
-        track.applyConstraints({ advanced:[{ focusMode:'continuous' }] }).catch(function(){});
-      }
     }catch(e){}
     getWorker().then(function(){ progressOff(); }).catch(function(){
       loud(T('engineFailT'), T('engineFailM'), function(){ getWorker().catch(function(){}); });
     });
-    resumeScan();
+    scanning=true;
     tick();
   }).catch(function(err){
     var denied = err && (err.name==='NotAllowedError' || err.name==='SecurityError');
@@ -1587,21 +1622,16 @@ function startLive(){
 }
 function stopLive(){
   liveOn=false; scanning=false;
-  clearTimeout(liveTimer);
-  if(stream) stream.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} });
-  stream=null; track=null; torchOn=false;
-  vid.srcObject=null;
+  closeCam();
   $('liveWrap').classList.add('hide');
   $('shootRow').classList.add('hide');
-  $('torchBtn').classList.add('hide');
-  $('torchBtn').classList.remove('on');
   $('liveBtn').classList.remove('hide');
+  liveBtnLabel();
 }
-/* permission already granted this session → reopen silently, no second prompt */
-function ensureLive(){
-  if(liveOn || !permGranted) return;
-  startLive();
-}
+
+/* The camera is never reopened on its own — only when the user asks for the
+   next scan. permGranted means that reopening costs no second prompt. */
+function ensureLive(){ liveBtnLabel(); }
 
 /* ---------- crop the band out of the live frame ---------- */
 function bandCanvas(){
@@ -1665,7 +1695,7 @@ var mqLand = (window.matchMedia
   : { matches:false });
 
 function tick(){
-  if(!liveOn) return;
+  if(!liveOn || !camOn) return;
   var delay=380;
   if(mqLand.matches){                    /* rotate gate is covering the screen */
     badge('', 'stRotate');
@@ -1705,10 +1735,12 @@ function takeShot(c){
   shotSrc = c;                                  /* held until accept or retake */
   clearShotSel();
   scanning=false; steadyHits=0; prevSmall=null;
+  /* the still is in memory — the camera has nothing left to do */
+  closeCam();
+  $('liveWrap').classList.add('hide');
   shotCv.width=c.width; shotCv.height=c.height;
   shotCv.getContext('2d').drawImage(c,0,0);
   $('shotBox').classList.add('on');
-  $('liveWrap').classList.add('frozen');
   $('shootRow').classList.add('hide');
   readShot();
 }
@@ -1884,16 +1916,21 @@ $('caught').addEventListener('click', function(e){
 });
 
 /* ---------- accept / retake ---------- */
+/* Ends the shot and leaves the camera OFF. Nothing reopens it but a tap on
+   「再扫一张」 — you can edit the note in peace with the lens powered down. */
 function resumeScan(){
-  pending=[]; shotSrc=null;
+  pending=[]; shotSrc=null; clearShotSel();
   $('caught').classList.add('hide'); $('caught').innerHTML='';
   $('liveFoot').classList.add('hide');
   $('shotBox').classList.remove('on');
-  $('liveWrap').classList.remove('frozen');
-  $('shootRow').classList.remove('hide');
+  $('liveWrap').classList.add('hide');
+  $('shootRow').classList.add('hide');
+  $('liveBtn').classList.remove('hide');
+  liveBtnLabel();
   $('frameStat').textContent = shotCount ? T('collected').replace('%n', shotCount) : '';
   updateAcceptLabel();
-  prevSmall=null; steadyHits=0; needMove=true; scanning=true;
+  closeCam();
+  scanning=false; prevSmall=null; steadyHits=0; needMove=false;
 }
 /* The first accepted shot starts the note; every later one is appended to the
    end of it, with a visible separator so the joins survive into the export. */
@@ -1931,7 +1968,7 @@ function setMode(live){
     ? '<b>'+esc(T('hintLive'))+'</b>'
     : '<b>'+esc(T('hintDrag'))+'</b><br>'+esc(T('hintPaste'));
   if(live){ ensureLive(); }
-  else if(liveOn){ scanning=false; }     /* keep the session; do not re-ask later */
+  else if(camOn){ scanning=false; stopLive(); }   /* free the lens; permission is kept */
 }
 
 $('mLive').onclick=function(){ setMode(true); };
@@ -1980,13 +2017,9 @@ $('torchBtn').onclick=function(){
 };
 /* leaving the tab pauses the hunt; coming back reopens without a second prompt */
 document.addEventListener('visibilitychange', function(){
-  if(document.hidden){
-    if(liveOn){ stopLive(); }
-  } else if(permGranted && S.mode!=='shot'){
-    ensureLive();
-  }
+  if(document.hidden && camOn) stopLive();   /* never hold the lens in the background */
 });
-window.addEventListener('pagehide', function(){ if(liveOn) stopLive(); });
+window.addEventListener('pagehide', function(){ if(camOn) stopLive(); });
 
 /* ==========================================================================
    OFFLINE PACK — verify and pre-download every engine asset before the farm
@@ -2074,15 +2107,10 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
 paint();
 setBand();
 
-/* if the camera was already allowed on this site, open it without a tap.
-   Safari has no camera permission query, so there it stays one tap. */
-if(canLiveCam() && S.mode!=='shot' && navigator.permissions && navigator.permissions.query){
-  try{
-    navigator.permissions.query({ name:'camera' }).then(function(p){
-      if(p.state==='granted') startLive();
-    }).catch(function(){});
-  }catch(e){}
-}
+/* The lens is never opened on load, even where permission is already granted:
+   holding the camera open while someone reads their notes is the exact cost
+   this build exists to avoid. */
+liveBtnLabel();
 })();
 </script>
 </body>
