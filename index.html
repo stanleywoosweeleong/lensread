@@ -108,7 +108,17 @@ button.act:active{transform:translateY(1px)}
 .modes button:last-child{border-right:0}
 .modes button.on{background:var(--ink);color:#fff}
 .livewrap{position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-top:12px}
-.livewrap video{display:block;width:100%;height:68vh;max-height:620px;object-fit:contain;background:#000}
+.livewrap video{
+  display:block;width:100%;height:68vh;max-height:620px;object-fit:contain;background:#000;
+  transform-origin:center center;transition:transform .18s ease-out;touch-action:none
+}
+.livewrap video.pinching{transition:none}
+.focusring{
+  position:absolute;width:74px;height:74px;margin:-37px 0 0 -37px;border:2px solid #EDEFEA;border-radius:50%;
+  pointer-events:none;opacity:0;z-index:4
+}
+.focusring.on{animation:focuspop .9s ease-out}
+@keyframes focuspop{0%{opacity:1;transform:scale(1.5)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
 .band{
   position:absolute;left:2%;right:2%;pointer-events:none;
   border-top:1px solid rgba(237,239,234,.55);border-bottom:1px solid rgba(237,239,234,.55);
@@ -303,7 +313,10 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
         <video id="vid" playsinline muted autoplay></video>
         <div class="band" id="band"><b></b><b></b><b></b><b></b><em></em></div>
         <div class="badge" id="badge"><s></s><span id="badgeTxt"></span></div>
+        <div class="focusring" id="focusRing"></div>
         <div class="livebtns">
+          <button id="zoomBtn">1×</button>
+          <button id="focusBtn">◎</button>
           <button id="bandBtn">▤</button>
           <button id="torchBtn" class="hide">⚡</button>
           <button id="stopBtn" data-i18n="stopLive">停止</button>
@@ -425,6 +438,7 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
       </select>
     </div>
 
+    <div class="switch"><input type="checkbox" id="optTwopass"><span data-i18n="optTwopass">读得不好时自动再读一次（较慢，但少重拍）</span></div>
     <div class="switch"><input type="checkbox" id="optBin"><span data-i18n="optBin">高对比预处理（反光、旧标签）</span></div>
     <div class="switch"><input type="checkbox" id="optTidy"><span data-i18n="optTidy">整理中文空格与空行</span></div>
     <div class="switch"><input type="checkbox" id="optThumb"><span data-i18n="optThumb">笔记保存缩略图</span></div>
@@ -495,6 +509,7 @@ var I18N = {
     hintPaste:'也可直接按 Ctrl+V 贴上截图。',
     langpack:'识别语言包', layout:'版面模式',
     psm3:'自动分栏（默认）', psm6:'整块段落（药瓶标签、说明书）', psm7:'单行文字', psm11:'零散文字（招牌、表格）',
+    optTwopass:'读得不好时自动再读一次（较慢，但少重拍）',
     optBin:'高对比预处理（反光、旧标签）', optTidy:'整理中文空格与空行', optThumb:'笔记保存缩略图',
     backup:'备份', expJson:'导出 JSON 备份', impJson:'导入 JSON',
     loadEngine:'正在下载识别引擎…', loadLang:'正在下载语言包（首次较久）…',
@@ -530,12 +545,14 @@ var I18N = {
     accept:'采用这张', appendBtn:'追加到上一段', appended:'已追加为第 %n 张', collected:'已收 %n 张 · 对准下一段继续', reread:'重读', retake:'重拍', accepted:'已加入笔记',
     stMoveOn:'移开镜头，对准下一段再拍', stEditing:'编辑中 — 已暂停自动拍',
     selHint:'已框选一段 · 按「重读」只读框内',
+    stPass2:'读得不好，正在用高对比再读一次…', fsPass2:'第二次读的结果',
+    focusAuto:'这台设备不给网页控制对焦，已交给相机自动对焦。靠近或远离一点会自动重新对焦。',
     stHold:'稳住 — 正在拍', stShot:'已拍下，读取中…',
     shotRead:'本张读到 %n 行', shotNone:'这张没读到字。靠近一点、开灯，或在设置里改「整块段落」，再按重拍。',
     shotNoFrame:'镜头还没准备好',
     mLive:'实时取字', mShot:'拍照识别', startLive:'开启镜头', stopLive:'停止',
     keep:'存为笔记', wipe:'清空',
-    hintLive:'对准标签停稳一秒，自动拍一张只读这一张。拍完镜头要移开、对准下一段才会再拍。读漏的地方可以在照片上框出来按「重读」。',
+    hintLive:'对准标签停稳一秒会自动拍一张。字太小就两指捏合放大（或按 1× 按钮），点画面某处可重新对焦。拍完镜头要移开才会再拍；读漏的地方可在照片上框出来按「重读」。',
     stAim:'对准文字', stMove:'请停稳', stBlur:'对焦中', stSteady:'稳定', stRead:'读取中', stWarm:'引擎准备中',
     caughtN:'已读到 %n 行 · 点 × 删掉不要的',
     liveNoneT:'镜头打不开',
@@ -554,6 +571,7 @@ var I18N = {
     hintPaste:'On a computer you can also paste a screenshot with Ctrl+V.',
     langpack:'Language packs', layout:'Page layout',
     psm3:'Auto columns (default)', psm6:'Single block (labels, leaflets)', psm7:'Single line', psm11:'Scattered text (signs, tables)',
+    optTwopass:'Read a weak shot a second time automatically (slower, fewer retakes)',
     optBin:'High-contrast pre-processing (glare, faded labels)', optTidy:'Tidy Chinese spacing and blank lines', optThumb:'Keep a thumbnail with each note',
     backup:'Backup', expJson:'Export JSON backup', impJson:'Import JSON',
     loadEngine:'Downloading the OCR engine…', loadLang:'Downloading language packs (first run is slow)…',
@@ -589,12 +607,14 @@ var I18N = {
     accept:'Use this one', appendBtn:'Append to note', appended:'Appended as shot %n', collected:'%n shots collected · aim at the next part', reread:'Read again', retake:'Retake', accepted:'Added to the note',
     stMoveOn:'Move to the next part to arm', stEditing:'Editing — auto-shoot paused',
     selHint:'Region selected · tap Read again to read only that',
+    stPass2:'Weak read — trying again with contrast…', fsPass2:'from the second pass',
+    focusAuto:'This device does not let a web page drive focus. The camera is autofocusing on its own — moving nearer or further makes it refocus.',
     stHold:'Hold — taking it', stShot:'Captured, reading…',
     shotRead:'%n lines on this shot', shotNone:'No text on this shot. Move closer, add light, or switch to Single block in Settings, then retake.',
     shotNoFrame:'The lens is not ready yet',
     mLive:'Live reading', mShot:'Photo', startLive:'Open the lens', stopLive:'Stop',
     keep:'Save as note', wipe:'Clear',
-    hintLive:'Hold steady for a second and one still is taken and read. It will not fire again until the lens moves to something new. Missed a paragraph? Drag a box on the photo and tap Read again.',
+    hintLive:'Hold steady for a second and one still is taken and read. Pinch to zoom in on small print, or tap the picture to refocus there. It will not fire again until the lens moves. Missed a paragraph? Drag a box on the photo and tap Read again.',
     stAim:'Aim at text', stMove:'Hold still', stBlur:'Focusing', stSteady:'Steady', stRead:'Reading', stWarm:'Warming engine',
     caughtN:'%n lines read · tap × to drop one',
     liveNoneT:'Cannot open the lens',
@@ -634,7 +654,7 @@ function notice(msg){
 function hideLoud(){ $('alert').classList.remove('on'); }
 
 /* ---------- settings ---------- */
-var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', autoshot:true };
+var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', autoshot:true, twopass:true };
 try{ var raw=localStorage.getItem(K_SET); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){}
 lang = S.lang==='en' ? 'en' : 'zh';
 function saveSet(){ try{ localStorage.setItem(K_SET, JSON.stringify(S)); }catch(e){} }
@@ -674,6 +694,15 @@ var rotation = 0;            // 0/90/180/270
 var selRect = null;          // {x,y,w,h} in canvas pixels
 var queue = [];              // pending files for batch
 var MAXPX = 2200;
+/* iOS Safari returns a blank canvas past roughly 4096px per side / ~16M px.
+   A blank canvas reads as zero text, which would look like an OCR failure. */
+var MAX_DIM = 4096, MAX_AREA = 12e6;
+function safeScale(sw, sh, k){
+  if(sw*k > MAX_DIM) k = MAX_DIM/sw;
+  if(sh*k > MAX_DIM) k = MAX_DIM/sh;
+  if(sw*k*sh*k > MAX_AREA) k = Math.sqrt(MAX_AREA/(sw*sh));
+  return k;
+}
 
 function loadFile(file){
   return new Promise(function(res,rej){
@@ -858,7 +887,7 @@ function getWorker(){
         } else if(m.status==='initializing api' || m.status==='initialized api'){
           progress(0.62, T('loadLang'));
         } else if(m.status==='recognizing text'){
-          if(!liveOn) progress(0.65 + (m.progress||0)*0.35, T('recog'));
+          if(!liveOn || shotBusy) progress(0.65 + (m.progress||0)*0.35, T('recog'));
         }
       }
     });
@@ -1258,6 +1287,8 @@ $('sheet').addEventListener('click', function(e){ if(e.target===$('sheet')) $('s
 $('langBtn').onclick=function(){ lang = lang==='zh'?'en':'zh'; S.lang=lang; saveSet(); paint(); };
 
 $('packSel').value=S.pack; $('psmSel').value=S.psm;
+$('optTwopass').checked=S.twopass;
+$('optTwopass').onchange=function(){ S.twopass=this.checked; saveSet(); };
 $('optBin').checked=S.bin; $('optTidy').checked=S.tidy; $('optThumb').checked=S.thumb;
 $('packSel').onchange=function(){ S.pack=this.value; saveSet(); checkOffline(); };
 $('psmSel').onchange=function(){ S.psm=this.value; saveSet(); };
@@ -1307,6 +1338,13 @@ var permGranted=false;          /* asked once per session, then reused silently 
 var scanning=false;             /* true = hunting for a frame; false = frozen on a shot */
 var shotBusy=false, steadyHits=0, torchOn=false;
 var needMove=false;             /* set after every shot: the lens must move before another fires */
+var ZOOMS=[1,1.5,2,3], zoomIx=0;
+var ZMIN=1, ZMAX=5;
+var zoom=1;                     /* what the user asked for, 1–5 */
+var cssZoom=1;                  /* the part of it done with a CSS transform */
+var hwZoom=null;                /* {min,max} when the camera can zoom itself */
+var focusNoted=false;
+var pinching=false, pinchStartDist=0, pinchStartZoom=1, pinchStartCss=1, pinchEndedAt=0;
 var shotCv=$('shotCv'), shotSrc=null;     /* shotSrc = the internal photo state */
 var pending=[];                 /* lines read from the current still */
 var shotCount=0;                /* shots already appended to the note in progress */
@@ -1323,6 +1361,136 @@ function badge(state,key){
   $('badgeTxt').textContent=T(key);
 }
 function autoLabel(){ $('autoBtn').textContent = T(S.autoshot ? 'autoOn' : 'autoOff'); }
+
+/* ---------- zoom ----------
+   Hardware zoom (when the camera exposes it) genuinely resolves more detail.
+   Where it is missing — iOS Safari, most notably — we fall back to scaling the
+   preview with CSS and cropping tighter. That helps you aim, but be clear-eyed:
+   digital zoom adds no detail the sensor did not already capture. */
+function zoomLabel(){
+  $('zoomBtn').textContent = (Math.round(zoom*10)/10) + '\u00d7';
+}
+function setZoom(z){
+  zoom = Math.min(ZMAX, Math.max(ZMIN, z));
+  zoomLabel();
+  if(hwZoom && track){
+    var hz, rest;
+    if(hwZoom.min >= 1){
+      /* reported as a real multiplier — use the sensor as far as it goes and
+         make up any shortfall digitally */
+      hz = Math.min(hwZoom.max, Math.max(hwZoom.min, zoom));
+      rest = zoom/hz;
+    } else {
+      /* opaque scale — map our 1–5 across whatever range it reports */
+      hz = hwZoom.min + (hwZoom.max-hwZoom.min)*((zoom-ZMIN)/(ZMAX-ZMIN));
+      rest = 1;
+    }
+    cssZoom = rest > 1.01 ? rest : 1;
+    vid.style.transform = cssZoom>1 ? 'scale('+cssZoom.toFixed(3)+')' : '';
+    track.applyConstraints({ advanced:[{ zoom:hz }] }).catch(function(){
+      hwZoom=null; cssZoom=zoom;          /* it lied; go fully digital */
+      vid.style.transform = zoom>1 ? 'scale('+zoom.toFixed(3)+')' : '';
+    });
+  } else {
+    cssZoom = zoom;
+    vid.style.transform = zoom>1 ? 'scale('+zoom.toFixed(3)+')' : '';
+  }
+  prevSmall=null; steadyHits=0;
+}
+function applyZoom(){ setZoom(ZOOMS[zoomIx]); }
+
+/* ---------- pinch ----------
+   Two paths, because iOS Safari does not deliver two-finger pointer events for
+   a page pinch — it fires its own WebKit gesture events instead. During the
+   pinch we only move the CSS transform (smooth, no constraint spam); the
+   hardware zoom is committed once, when fingers lift. */
+function pinchPreview(z){
+  var shown = Math.min(ZMAX, Math.max(ZMIN, z));
+  zoom = shown; zoomLabel();
+  var css = pinchStartCss * (shown/pinchStartZoom);
+  vid.style.transform = css>1 ? 'scale('+css.toFixed(3)+')' : '';
+}
+function pinchBegin(){
+  pinching=true;
+  pinchStartZoom=zoom; pinchStartCss=cssZoom;
+  vid.classList.add('pinching');
+}
+function pinchEnd(){
+  if(!pinching) return;
+  pinching=false; pinchEndedAt=Date.now();
+  vid.classList.remove('pinching');
+  setZoom(zoom);                    /* commit — hardware zoom applied here */
+}
+
+/* pointer path: Android Chrome and anything with real multi-touch pointers */
+var pts={};
+vid.addEventListener('pointerdown', function(e){
+  pts[e.pointerId]={ x:e.clientX, y:e.clientY };
+  var ids=Object.keys(pts);
+  if(ids.length===2){
+    var a=pts[ids[0]], b=pts[ids[1]];
+    pinchStartDist=Math.hypot(a.x-b.x, a.y-b.y);
+    pinchBegin();
+  }
+});
+vid.addEventListener('pointermove', function(e){
+  if(!pts[e.pointerId]) return;
+  pts[e.pointerId]={ x:e.clientX, y:e.clientY };
+  var ids=Object.keys(pts);
+  if(pinching && ids.length===2 && pinchStartDist>0){
+    e.preventDefault();
+    var a=pts[ids[0]], b=pts[ids[1]];
+    pinchPreview(pinchStartZoom * (Math.hypot(a.x-b.x, a.y-b.y)/pinchStartDist));
+  }
+});
+function dropPointer(e){
+  delete pts[e.pointerId];
+  if(Object.keys(pts).length<2) pinchEnd();
+}
+vid.addEventListener('pointerup', dropPointer);
+vid.addEventListener('pointercancel', dropPointer);
+
+/* WebKit gesture path: this is the one that fires on iOS Safari */
+vid.addEventListener('gesturestart', function(e){ e.preventDefault(); pinchBegin(); });
+vid.addEventListener('gesturechange', function(e){
+  e.preventDefault();
+  if(pinching) pinchPreview(pinchStartZoom * e.scale);
+});
+vid.addEventListener('gestureend', function(e){ e.preventDefault(); pinchEnd(); });
+
+/* ---------- focus ----------
+   Tap the picture to focus there where the browser allows it; otherwise nudge
+   continuous autofocus, which is all iOS Safari will give us. */
+function refocus(nx, ny){
+  if(!track) return;
+  var ring=$('focusRing');
+  if(nx!=null){
+    ring.style.left=(nx*100)+'%'; ring.style.top=(ny*100)+'%';
+    ring.classList.remove('on'); void ring.offsetWidth; ring.classList.add('on');
+  }
+  var caps={};
+  try{ caps = track.getCapabilities ? track.getCapabilities() : {}; }catch(e){}
+  var adv=[];
+  if(nx!=null && caps.pointsOfInterest) adv.push({ pointsOfInterest:[{ x:nx, y:ny }] });
+  if(caps.focusMode && caps.focusMode.indexOf('single-shot')>=0) adv.push({ focusMode:'single-shot' });
+  else if(caps.focusMode && caps.focusMode.indexOf('continuous')>=0) adv.push({ focusMode:'continuous' });
+  if(!adv.length){
+    if(!focusNoted){ focusNoted=true; toast(T('focusAuto')); }
+    prevSmall=null; steadyHits=0;
+    return;
+  }
+  track.applyConstraints({ advanced:adv }).then(function(){
+    /* drop back to continuous so it keeps tracking after the one-shot lock */
+    if(caps.focusMode && caps.focusMode.indexOf('continuous')>=0){
+      setTimeout(function(){
+        track.applyConstraints({ advanced:[{ focusMode:'continuous' }] }).catch(function(){});
+      }, 2200);
+    }
+  }).catch(function(){
+    if(!focusNoted){ focusNoted=true; toast(T('focusAuto')); }
+  });
+  prevSmall=null; steadyHits=0;
+}
 
 /* ---------- camera session ---------- */
 function startLive(){
@@ -1344,13 +1512,14 @@ function startLive(){
     $('liveWrap').classList.remove('hide');
     $('shootRow').classList.remove('hide');
     $('liveBtn').classList.add('hide');
-    setBand(); autoLabel();
+    setBand(); autoLabel(); zoomIx=0; applyZoom();
     try{
       if(screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){});
     }catch(e){}
     try{
       var caps = track.getCapabilities ? track.getCapabilities() : {};
       if(caps.torch) $('torchBtn').classList.remove('hide');
+      if(caps.zoom && caps.zoom.max > caps.zoom.min) hwZoom = { min:caps.zoom.min, max:caps.zoom.max };
       if(caps.focusMode && caps.focusMode.indexOf('continuous')>=0){
         track.applyConstraints({ advanced:[{ focusMode:'continuous' }] }).catch(function(){});
       }
@@ -1387,22 +1556,25 @@ function ensureLive(){
 function bandCanvas(){
   var vw=vid.videoWidth, vh=vid.videoHeight;
   if(!vw || !vh) return null;
-  var r=vid.getBoundingClientRect();
-  if(!r.width || !r.height) return null;
-  /* the video is object-fit: contain, so the whole sensor frame is on screen */
-  var scale=Math.min(r.width/vw, r.height/vh);
-  var sx0=(vw - r.width/scale)/2, sy0=(vh - r.height/scale)/2;
-  var b=$('band').getBoundingClientRect();
-  var sx=sx0+(b.left-r.left)/scale, sy=sy0+(b.top-r.top)/scale;
-  var sw=b.width/scale, sh=b.height/scale;
+  /* offsetWidth/offsetLeft are LAYOUT values — unaffected by the CSS zoom
+     transform, unlike getBoundingClientRect, which would count it twice */
+  var dw=vid.offsetWidth, dh=vid.offsetHeight;
+  if(!dw || !dh) return null;
+  /* object-fit: contain, then whatever digital zoom is on top */
+  var eff=Math.min(dw/vw, dh/vh) * cssZoom;
+  var sx0=(vw - dw/eff)/2, sy0=(vh - dh/eff)/2;
+  var bEl=$('band');
+  var sx=sx0+(bEl.offsetLeft - vid.offsetLeft)/eff, sy=sy0+(bEl.offsetTop - vid.offsetTop)/eff;
+  var sw=bEl.offsetWidth/eff, sh=bEl.offsetHeight/eff;
   if(sx<0){ sw+=sx; sx=0; }
   if(sy<0){ sh+=sy; sy=0; }
   if(sx+sw>vw) sw=vw-sx;
   if(sy+sh>vh) sh=vh-sy;
   if(sw<10 || sh<8) return null;
   /* NEVER below 1.0 — downscaling was costing small CJK, which is the whole point.
-     Small crops still get upscaled, because Tesseract wants tall glyphs. */
-  var k=Math.min(2.6, Math.max(1.0, 2200/Math.max(sw,sh)));
+     One slow accurate read beats three fast retakes, so aim high and clamp only
+     where the browser would break. */
+  var k=safeScale(sw, sh, Math.min(3.0, Math.max(1.0, 2800/Math.max(sw,sh))));
   var c=document.createElement('canvas');
   c.width=Math.round(sw*k); c.height=Math.round(sh*k);
   var g=c.getContext('2d',{ willReadFrequently:true });
@@ -1530,7 +1702,7 @@ function readShot(){
   var sel=shotSel, work=document.createElement('canvas');
   if(sel){
     /* a hand-picked region is usually small — upscale it hard for CJK */
-    var kk=Math.min(3, Math.max(1, 1400/Math.max(sel.w, sel.h)));
+    var kk=safeScale(sel.w, sel.h, Math.min(4, Math.max(1, 2000/Math.max(sel.w, sel.h))));
     work.width=Math.round(sel.w*kk); work.height=Math.round(sel.h*kk);
     work.getContext('2d').drawImage(shotSrc, sel.x, sel.y, sel.w, sel.h, 0, 0, work.width, work.height);
   } else {
@@ -1539,24 +1711,48 @@ function readShot(){
   }
   if(S.bin) enhanceOn(work);
 
-  getWorker().then(function(w){
-    return w.recognize(work);
-  }).then(function(r){
-    var lines=flatLines(r.data), keep=[], low=0, short_=0;
-    for(var i=0;i<lines.length;i++){
-      var t=tidy(lines[i].text||''), conf=lines[i].conf;
+  function harvest(data){
+    var ls=flatLines(data), keep=[], low=0, short_=0, sum=0;
+    for(var i=0;i<ls.length;i++){
+      var t=tidy(ls[i].text||''), conf=ls[i].conf;
       if(!t || t.replace(/\s/g,'').length<2){ short_++; continue; }
       if(conf<35){ low++; continue; }
-      keep.push({ text:t, conf:conf });
+      keep.push({ text:t, conf:conf }); sum+=conf;
     }
-    pending=keep;
+    return { keep:keep, low:low, short:short_, mean: keep.length ? sum/keep.length : 0 };
+  }
+  /* more lines wins; ties go to the more confident read */
+  function score(r){ return r.keep.length*12 + r.mean; }
+  var passes=1;
+
+  getWorker().then(function(w){
+    return w.recognize(work).then(function(r){
+      var a=harvest(r.data);
+      /* good enough — don't spend a second pass on it */
+      if(!S.twopass || (a.keep.length>=2 && a.mean>=78)) return a;
+      /* weak: read the SAME still again with contrast pushed, keep the better one.
+         Seconds spent here are cheaper than making you line up another shot. */
+      var alt=document.createElement('canvas');
+      alt.width=work.width; alt.height=work.height;
+      alt.getContext('2d').drawImage(work,0,0);
+      enhanceOn(alt);
+      passes=2;
+      $('frameStat').textContent = T('stPass2');
+      return w.recognize(alt).then(function(r2){
+        var b=harvest(r2.data);
+        return score(b) > score(a) ? b : a;
+      }, function(){ return a; });
+    });
+  }).then(function(res){
+    pending=res.keep;
     renderPending();
-    if(!keep.length){
+    if(!res.keep.length){
       $('frameStat').textContent = T('shotNone');
     } else {
-      var bits=[T('shotRead').replace('%n', keep.length)];
-      if(low)    bits.push(T('fsLow').replace('%n', low));
-      if(short_) bits.push(T('fsShort').replace('%n', short_));
+      var bits=[T('shotRead').replace('%n', res.keep.length)];
+      if(passes>1)  bits.push(T('fsPass2'));
+      if(res.low)   bits.push(T('fsLow').replace('%n', res.low));
+      if(res.short) bits.push(T('fsShort').replace('%n', res.short));
       $('frameStat').textContent = bits.join(' · ');
     }
     updateAcceptLabel();
@@ -1654,6 +1850,19 @@ $('autoBtn').onclick=function(){ S.autoshot=!S.autoshot; saveSet(); autoLabel();
 $('acceptBtn').onclick=acceptShot;
 $('retakeBtn').onclick=resumeScan;
 $('rereadBtn').onclick=readShot;
+$('zoomBtn').onclick=function(){
+  var next=ZOOMS[0];
+  for(var i=0;i<ZOOMS.length;i++){ if(ZOOMS[i] > zoom + 0.05){ next=ZOOMS[i]; break; } }
+  setZoom(next);
+};
+$('focusBtn').onclick=function(){ refocus(null,null); };
+vid.addEventListener('click', function(e){
+  if(pinching || Date.now()-pinchEndedAt < 400) return;   /* tail of a pinch, not a tap */
+  var r=vid.getBoundingClientRect();
+  if(!r.width || !r.height) return;
+  refocus(Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),
+          Math.min(1,Math.max(0,(e.clientY-r.top)/r.height)));
+});
 $('bandBtn').onclick=function(){ bandIx=(bandIx+1)%BANDS.length; setBand(); prevSmall=null; steadyHits=0; };
 $('torchBtn').onclick=function(){
   if(!track) return;
