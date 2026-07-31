@@ -287,6 +287,7 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
           <button id="stopBtn" data-i18n="stopLive">停止</button>
         </div>
       </div>
+      <div class="small" id="frameStat" style="margin-top:8px;font-family:var(--mono);font-size:11px"></div>
       <div class="caught hide" id="caught"></div>
       <div class="livefoot hide" id="liveFoot">
         <button class="act slim" id="keepBtn" data-i18n="keep">存为笔记</button>
@@ -476,6 +477,8 @@ var I18N = {
     offFail:'预载失败：%s 下载不到。请检查 vendor 资料夹有没有推上 GitHub。',
     cdnWarnT:'正在用网络版引擎',
     cdnWarnM:'仓库里的 vendor 资料夹没找到，现在临时从 CDN 载入。断网就会失灵 — 请确认 vendor/ 已推上 GitHub Pages。',
+    fsRead:'上一帧读到 %n 行', fsKept:'收录 %n', fsDup:'重复 %n', fsWait:'等第二次 %n',
+    fsLow:'太模糊 %n', fsShort:'太短 %n',
     mLive:'实时取字', mShot:'拍照识别', startLive:'开始取字', stopLive:'停止',
     keep:'存为笔记', wipe:'清空',
     hintLive:'把文字对进框里，停稳一秒就会自动读出来，不用按快门。',
@@ -526,6 +529,8 @@ var I18N = {
     offFail:'Preload failed: %s could not be downloaded. Check that the vendor folder was pushed to GitHub.',
     cdnWarnT:'Running on the network engine',
     cdnWarnM:'The vendor folder was not found in the repo, so the engine was loaded from a CDN. It will fail without signal — check that vendor/ is deployed to GitHub Pages.',
+    fsRead:'last frame: %n lines', fsKept:'kept %n', fsDup:'repeat %n', fsWait:'awaiting 2nd read %n',
+    fsLow:'too blurred %n', fsShort:'too short %n',
     mLive:'Live reading', mShot:'Photo', startLive:'Start reading', stopLive:'Stop',
     keep:'Save as note', wipe:'Clear',
     hintLive:'Hold the text inside the band. It reads by itself once the image steadies — no shutter button.',
@@ -568,7 +573,7 @@ function notice(msg){
 function hideLoud(){ $('alert').classList.remove('on'); }
 
 /* ---------- settings ---------- */
-var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', confirm:true };
+var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', confirm:false };
 try{ var raw=localStorage.getItem(K_SET); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){}
 lang = S.lang==='en' ? 'en' : 'zh';
 function saveSet(){ try{ localStorage.setItem(K_SET, JSON.stringify(S)); }catch(e){} }
@@ -808,6 +813,32 @@ function getWorker(){
   });
 }
 
+/* Tesseract v5 returns data.blocks[].paragraphs[].lines[] — there is NO
+   data.lines. Flatten it here, and fall back to splitting the plain text if a
+   page-segmentation mode returns no block structure. */
+function flatLines(d){
+  var out=[], b, p, l, ps, ls;
+  if(d && d.blocks && d.blocks.length){
+    for(b=0;b<d.blocks.length;b++){
+      ps = d.blocks[b] && d.blocks[b].paragraphs || [];
+      for(p=0;p<ps.length;p++){
+        ls = ps[p].lines || [];
+        for(l=0;l<ls.length;l++){
+          if(ls[l] && ls[l].text != null){
+            out.push({ text:ls[l].text, conf: (ls[l].confidence==null ? (d.confidence||0) : ls[l].confidence) });
+          }
+        }
+      }
+    }
+  }
+  if(!out.length && d && d.text){
+    d.text.split('\n').forEach(function(t){
+      if(t.trim()) out.push({ text:t, conf: d.confidence||0 });
+    });
+  }
+  return out;
+}
+
 /* ---------- text tidy ---------- */
 var CJK = '\\u3000-\\u303f\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\\uff00-\\uffef';
 var reCJKspace = new RegExp('(['+CJK+'])[ \\t]+(?=['+CJK+'])','g');
@@ -875,15 +906,10 @@ function run(){
     return w.recognize(targetCanvas());
   }).then(function(r){
     var d=r.data, got=[];
-    var lines = (d.lines && d.lines.length) ? d.lines : null;
-    if(lines){
-      for(var i=0;i<lines.length;i++){
-        var t = tidy(lines[i].text||'');
-        if(t) got.push({ text:t, conf:lines[i].confidence });
-      }
-    } else {
-      var whole = tidy(d.text||'');
-      if(whole) got.push({ text:whole, conf:d.confidence });
+    var src = flatLines(d);
+    for(var i=0;i<src.length;i++){
+      var t = tidy(src[i].text||'');
+      if(t) got.push({ text:t, conf:src[i].conf });
     }
     if(!got.length){
       notice(T('noText'));
@@ -1356,26 +1382,31 @@ function readFrame(c){
   getWorker().then(function(w){
     return w.recognize(c);
   }).then(function(r){
-    var lines=(r.data && r.data.lines) || [];
-    var added=0;
+    var lines = flatLines(r.data);
+    var added=0, nLow=0, nShort=0, nWait=0, nDup=0;
     for(var i=0;i<lines.length;i++){
       var t=tidy(lines[i].text||'');
-      var conf=lines[i].confidence;
-      if(!t || conf<48) continue;
-      if(t.replace(/\s/g,'').length<2) continue;
+      var conf=lines[i].conf;
+      if(!t){ nShort++; continue; }
+      if(conf<35){ nLow++; continue; }
+      if(t.replace(/\s/g,'').length<2){ nShort++; continue; }
       var k=keyOf(t);
-      if(!k) continue;
+      if(!k){ nShort++; continue; }
       var hit=capMap[k];
       if(hit && hit.banned) continue;          /* dropped by hand — stays dropped */
+      /* a crisp read is trusted straight away; a marginal one waits for a second look */
+      var instant = !S.confirm || conf>=88;
       if(hit){
         hit.hits++;
         if(conf>hit.conf){ hit.conf=conf; hit.text=t; }
-        if(!hit.shown && hit.hits>=(S.confirm?2:1)){ hit.shown=true; hit.fresh=true; added++; }
+        if(!hit.shown && (hit.hits>=2 || instant)){ hit.shown=true; hit.fresh=true; added++; }
+        else if(hit.shown) nDup++;
       } else {
-        capMap[k]={ key:k, text:t, conf:conf, hits:1, ord:capOrd++, shown:!S.confirm, fresh:!S.confirm };
-        if(!S.confirm) added++;
+        capMap[k]={ key:k, text:t, conf:conf, hits:1, ord:capOrd++, shown:instant, fresh:instant };
+        if(instant) added++; else nWait++;
       }
     }
+    frameStat(lines.length, added, nLow, nShort, nWait, nDup);
     if(added) renderCaught();
   }).catch(function(err){
     console.error(err);
@@ -1387,6 +1418,19 @@ function readFrame(c){
     progressOff();
     $('band').classList.remove('reading');
   });
+}
+
+/* every frame reports what it saw and what happened to it */
+function frameStat(read, kept, low, short_, wait, dup){
+  var el=$('frameStat');
+  if(!el) return;
+  var bits=[T('fsRead').replace('%n', read)];
+  if(kept)   bits.push(T('fsKept').replace('%n', kept));
+  if(dup)    bits.push(T('fsDup').replace('%n', dup));
+  if(wait)   bits.push(T('fsWait').replace('%n', wait));
+  if(low)    bits.push(T('fsLow').replace('%n', low));
+  if(short_) bits.push(T('fsShort').replace('%n', short_));
+  el.textContent = bits.join(' · ');
 }
 
 function shownLines(){
