@@ -300,11 +300,11 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
   <section class="card capture">
     <div class="permrow">
       <button class="act" id="liveBtn" data-i18n="startLive">开启镜头</button>
-    </div>
-
-    <div class="modes">
-      <button id="mLive" class="on" data-i18n="mLive">实时取字</button>
-      <button id="mShot" data-i18n="mShot">拍照识别</button>
+      <div class="grid2" style="margin-top:8px">
+        <button class="act ghost slim" id="fileBtn" data-i18n="pick">选择图片</button>
+        <button class="act ghost slim" id="camBtn" data-i18n="sysCam">用相机 App 拍</button>
+      </div>
+      <div class="hintline" id="capHint"></div>
     </div>
 
     <!-- live -->
@@ -346,19 +346,7 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
     </div>
 
     <!-- photo -->
-    <div id="shotPane" class="hide">
-    <div class="grid2">
-      <button class="act" id="camBtn">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="3.4"/></svg>
-        <span data-i18n="shoot">拍照识别</span>
-      </button>
-      <button class="act ghost" id="fileBtn">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>
-        <span data-i18n="pick">选择图片</span>
-      </button>
-    </div>
-    <div class="hintline" id="capHint"></div>
-
+    <div id="shotPane">
     <input type="file" id="camIn" accept="image/*" capture="environment" class="hide">
     <input type="file" id="fileIn" accept="image/*" multiple class="hide">
     <input type="file" id="restoreIn" accept="application/json,.json" class="hide">
@@ -549,7 +537,7 @@ var I18N = {
     fsRead:'上一帧读到 %n 行', fsKept:'收录 %n', fsDup:'重复 %n', fsWait:'等第二次 %n',
     fsLow:'太模糊 %n', fsShort:'太短 %n',
     rotateT:'请直着拿手机', rotateM:'镜读只在竖屏使用。转回竖屏就会继续读。', stRotate:'请转回竖屏',
-    shoot:'立即拍', autoOn:'自动拍：开', autoOff:'自动拍：关',
+    shoot:'立即拍', sysCam:'用相机 App 拍', autoOn:'自动拍：开', autoOff:'自动拍：关',
     accept:'采用这张', appendBtn:'追加到上一段', appended:'已追加为第 %n 张', collected:'已收 %n 张 · 对准下一段继续', reread:'重读', retake:'重拍', accepted:'已加入笔记',
     stMoveOn:'移开镜头，对准下一段再拍', stEditing:'编辑中 — 已暂停自动拍',
     selHint:'已框选一段 · 按「重读」只读框内',
@@ -558,7 +546,7 @@ var I18N = {
     stHold:'稳住 — 正在拍', stShot:'已拍下，读取中…',
     shotRead:'本张读到 %n 行', shotNone:'这张没读到字。靠近一点、开灯，或在设置里改「整块段落」，再按重拍。',
     shotNoFrame:'镜头还没准备好',
-    mLive:'实时取字', mShot:'拍照识别', startLive:'开启镜头', scanAgain:'再扫一张', stopLive:'停止',
+    startLive:'开启镜头', scanAgain:'再扫一张', stopLive:'停止',
     keep:'存为笔记', wipe:'清空',
     hintLive:'对准标签停稳一秒会自动拍一张。字太小就两指捏合放大（或按 1× 按钮），点画面某处可重新对焦。拍下后镜头会立刻关掉（省电、不磨对焦马达），要再扫就按「再扫一张」。读漏的地方可在照片上框出来按「重读」。',
     stAim:'对准文字', stMove:'请停稳', stBlur:'对焦中', stSteady:'稳定', stRead:'读取中', stWarm:'引擎准备中',
@@ -616,7 +604,7 @@ var I18N = {
     fsRead:'last frame: %n lines', fsKept:'kept %n', fsDup:'repeat %n', fsWait:'awaiting 2nd read %n',
     fsLow:'too blurred %n', fsShort:'too short %n',
     rotateT:'Hold the phone upright', rotateM:'LensRead is portrait only. Turn it back and reading continues.', stRotate:'Turn upright',
-    shoot:'Take it now', autoOn:'Auto-shoot: on', autoOff:'Auto-shoot: off',
+    shoot:'Take it now', sysCam:'Use camera app', autoOn:'Auto-shoot: on', autoOff:'Auto-shoot: off',
     accept:'Use this one', appendBtn:'Append to note', appended:'Appended as shot %n', collected:'%n shots collected · aim at the next part', reread:'Read again', retake:'Retake', accepted:'Added to the note',
     stMoveOn:'Move to the next part to arm', stEditing:'Editing — auto-shoot paused',
     selHint:'Region selected · tap Read again to read only that',
@@ -625,7 +613,7 @@ var I18N = {
     stHold:'Hold — taking it', stShot:'Captured, reading…',
     shotRead:'%n lines on this shot', shotNone:'No text on this shot. Move closer, add light, or switch to Single block in Settings, then retake.',
     shotNoFrame:'The lens is not ready yet',
-    mLive:'Live reading', mShot:'Photo', startLive:'Open the lens', scanAgain:'Scan another', stopLive:'Stop',
+    startLive:'Open the lens', scanAgain:'Scan another', stopLive:'Stop',
     keep:'Save as note', wipe:'Clear',
     hintLive:'Hold steady for a second and one still is taken and read. Pinch to zoom in on small print, or tap the picture to refocus there. The camera shuts off the moment the still is taken, so nothing runs while you edit. Tap Scan another for the next one. Missed a paragraph? Drag a box on the photo and tap Read again.',
     stAim:'Aim at text', stMove:'Hold still', stBlur:'Focusing', stSteady:'Steady', stRead:'Reading', stWarm:'Warming engine',
@@ -691,7 +679,7 @@ function paint(){
   for(var j=0;j<ph.length;j++){ ph[j].placeholder = T(ph[j].getAttribute('data-i18n-ph')); }
   $('aboutTxt').textContent = T('about') + (canLiveCam() ? '' : ' ' + T('noCam'));
   $('allBtn').textContent = allSelected() ? T('selNone') : T('selAll');
-  setMode(canLiveCam() && S.mode!=='shot');
+  refreshCapture();
   renderPending(); autoLabel(); updateAcceptLabel(); liveBtnLabel(); renderNotes(); renderResult();
 }
 function canLiveCam(){
@@ -747,6 +735,7 @@ function drawStage(){
   clearSel();
   $('stage').classList.remove('hide');
   $('tools').classList.remove('hide');
+  $('capHint').innerHTML = '<b>'+esc(T('hintDrag'))+'</b>';
 }
 
 /* grayscale + local contrast stretch — helps glare and faded print */
@@ -1125,6 +1114,7 @@ function resetWork(){
   $('editArea').value='';
   srcImg=null; rotation=0; clearSel();
   $('stage').classList.add('hide'); $('tools').classList.add('hide');
+  refreshCapture();
   renderResult();
   updateAcceptLabel();
   if($('frameStat')) $('frameStat').textContent='';   /* stale shot tally */
@@ -1605,7 +1595,7 @@ function startLive(){
     $('liveWrap').classList.remove('hide');
     $('shotBox').classList.remove('on');
     $('shootRow').classList.remove('hide');
-    $('liveBtn').classList.add('hide');
+    refreshCapture();
     setBand(); autoLabel();
     try{
       if(screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){});
@@ -1624,9 +1614,9 @@ function stopLive(){
   liveOn=false; scanning=false;
   closeCam();
   $('liveWrap').classList.add('hide');
+  $('liveBtn').classList.add('hide');
   $('shootRow').classList.add('hide');
-  $('liveBtn').classList.remove('hide');
-  liveBtnLabel();
+  refreshCapture();
 }
 
 /* The camera is never reopened on its own — only when the user asks for the
@@ -1738,6 +1728,7 @@ function takeShot(c){
   /* the still is in memory — the camera has nothing left to do */
   closeCam();
   $('liveWrap').classList.add('hide');
+  $('liveBtn').classList.add('hide');
   shotCv.width=c.width; shotCv.height=c.height;
   shotCv.getContext('2d').drawImage(c,0,0);
   $('shotBox').classList.add('on');
@@ -1963,8 +1954,7 @@ function resumeScan(){
   $('shotBox').classList.remove('on');
   $('liveWrap').classList.add('hide');
   $('shootRow').classList.add('hide');
-  $('liveBtn').classList.remove('hide');
-  liveBtnLabel();
+  refreshCapture();
   $('frameStat').textContent = shotCount ? T('collected').replace('%n', shotCount) : '';
   updateAcceptLabel();
   closeCam();
@@ -1994,23 +1984,20 @@ function updateAcceptLabel(){
   $('acceptBtn').textContent = T(has ? 'appendBtn' : 'accept');
 }
 
-function setMode(live){
-  S.mode = live ? 'live' : 'shot';
-  saveSet();
-  $('mLive').classList.toggle('on', live);
-  $('mShot').classList.toggle('on', !live);
-  $('livePane').classList.toggle('hide', !live);
-  $('shotPane').classList.toggle('hide', live);
-  $('liveBtn').parentNode.classList.toggle('hide', !live);
+/* One capture card, no modes. The live lens is the primary path; the two quiet
+   buttons cover the cases it cannot: no https, permission refused, or a photo
+   already sitting in the camera roll. */
+function refreshCapture(){
+  var live = canLiveCam();
+  $('liveBtn').classList.toggle('hide', !live || camOn);
+  liveBtnLabel();
   $('capHint').innerHTML = live
     ? '<b>'+esc(T('hintLive'))+'</b>'
-    : '<b>'+esc(T('hintDrag'))+'</b><br>'+esc(T('hintPaste'));
-  if(live){ ensureLive(); }
-  else if(camOn){ scanning=false; stopLive(); }   /* free the lens; permission is kept */
+    : '<b>'+esc(T('noCam'))+'</b>';
 }
+/* kept so older call sites keep working */
+function setMode(){ refreshCapture(); }
 
-$('mLive').onclick=function(){ setMode(true); };
-$('mShot').onclick=function(){ setMode(false); };
 $('liveBtn').onclick=startLive;
 $('stopBtn').onclick=stopLive;
 $('shootBtn').onclick=function(){ needMove=false; takeShot(null); };
@@ -2055,7 +2042,7 @@ $('torchBtn').onclick=function(){
 };
 /* leaving the tab pauses the hunt; coming back reopens without a second prompt */
 document.addEventListener('visibilitychange', function(){
-  if(document.hidden && camOn) stopLive();   /* never hold the lens in the background */
+  if(document.hidden && camOn){ stopLive(); refreshCapture(); }   /* never hold the lens in the background */
 });
 window.addEventListener('pagehide', function(){ if(camOn) stopLive(); });
 
