@@ -340,6 +340,7 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
       <div class="livefoot hide" id="liveFoot">
         <button class="act slim" id="acceptBtn">采用这张</button>
         <button class="act ghost slim" id="rereadBtn" data-i18n="reread">重读</button>
+        <button class="act ghost slim" id="fullBtn" data-i18n="fullRead">全图重读</button>
         <button class="act ghost slim" id="retakeBtn" data-i18n="retake">重拍</button>
         <button class="act ghost slim" id="rawBtn" data-i18n="saveRaw">存原图</button>
       </div>
@@ -427,6 +428,7 @@ textarea.edit:focus{outline:2px solid var(--violet);outline-offset:-2px}
       </select>
     </div>
 
+    <div class="switch"><input type="checkbox" id="optCrop"><span data-i18n="optCrop">自动框出纸张范围（去掉背景）</span></div>
     <div class="switch"><input type="checkbox" id="optSparse"><span data-i18n="optSparse">读得不好时改用「零散文字」再试（海报、封面）</span></div>
     <div class="switch"><input type="checkbox" id="optInvert"><span data-i18n="optInvert">自动读取反白文字（深底白字）</span></div>
     <div class="switch"><input type="checkbox" id="optTwopass"><span data-i18n="optTwopass">读得不好时自动再读一次（较慢，但少重拍）</span></div>
@@ -501,6 +503,8 @@ var I18N = {
     langpack:'识别语言包', layout:'版面模式',
     psm3:'自动分栏（默认）', psm6:'整块段落（药瓶标签、说明书）', psm7:'单行文字', psm11:'零散文字（招牌、表格）',
     optInvert:'自动读取反白文字（深底白字）',
+    optCrop:'自动框出纸张范围（去掉背景）',
+    fullRead:'全图重读', fsCrop:'已自动去背景',
     optSparse:'读得不好时改用「零散文字」再试（海报、封面）',
     stSparse:'换「零散文字」模式再读一次…', fsSparse:'零散文字模式',
     saveRaw:'存原图', rawFail:'原图存不下来',
@@ -568,6 +572,8 @@ var I18N = {
     langpack:'Language packs', layout:'Page layout',
     psm3:'Auto columns (default)', psm6:'Single block (labels, leaflets)', psm7:'Single line', psm11:'Scattered text (signs, tables)',
     optInvert:'Also read light-on-dark text automatically',
+    optCrop:'Find the sheet and ignore the background',
+    fullRead:'Read whole photo', fsCrop:'background trimmed',
     optSparse:'Retry a weak shot in sparse-text mode (posters, covers)',
     stSparse:'Trying sparse-text mode…', fsSparse:'sparse-text mode',
     saveRaw:'Save raw shot', rawFail:'Could not save the shot',
@@ -655,7 +661,7 @@ function notice(msg){
 function hideLoud(){ $('alert').classList.remove('on'); }
 
 /* ---------- settings ---------- */
-var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', autoshot:true, twopass:true, invert:true, sparse:true };
+var S = { pack:'chi_sim+eng', psm:'3', bin:false, tidy:true, thumb:true, lang:'zh', mode:'live', autoshot:true, twopass:true, invert:true, sparse:true, autocrop:true };
 try{ var raw=localStorage.getItem(K_SET); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){}
 lang = S.lang==='en' ? 'en' : 'zh';
 function saveSet(){ try{ localStorage.setItem(K_SET, JSON.stringify(S)); }catch(e){} }
@@ -903,6 +909,45 @@ function getWorker(){
       return w;
     });
   });
+}
+
+/* Find the sheet in the frame. Photos taken in a car, on a lap or against a
+   dark seat spend most of their pixels on nothing; cropping to the document
+   means the upscale budget lands on the text instead of the background.
+   Returns null when there is nothing worth cropping — never guesses. */
+function contentRect(c){
+  var W=c.width, H=c.height;
+  var sw=160, sh=Math.max(20, Math.round(160*H/W));
+  var sm=document.createElement('canvas'); sm.width=sw; sm.height=sh;
+  var g=sm.getContext('2d',{ willReadFrequently:true });
+  g.drawImage(c,0,0,sw,sh);
+  var d=g.getImageData(0,0,sw,sh).data;
+  var lum=new Float64Array(sw*sh), i;
+  for(i=0;i<sw*sh;i++) lum[i]=d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114;
+  var col=new Float64Array(sw), row=new Float64Array(sh), x, y, pp, e;
+  for(y=1;y<sh-1;y++) for(x=1;x<sw-1;x++){
+    pp=y*sw+x;
+    /* local edge energy plus a mild bias toward lit areas: paper has both */
+    e = Math.abs(lum[pp]-lum[pp-1]) + Math.abs(lum[pp]-lum[pp-sw]) + Math.max(0,lum[pp]-40)*0.02;
+    col[x]+=e; row[y]+=e;
+  }
+  function span(arr,n){
+    var mx=0,k;
+    for(k=0;k<n;k++) if(arr[k]>mx) mx=arr[k];
+    var th=mx*0.18, a=0, b=n-1;
+    while(a<n && arr[a]<th) a++;
+    while(b>a && arr[b]<th) b--;
+    return [a,b];
+  }
+  var sx=span(col,sw), sy=span(row,sh);
+  var x0=sx[0]/sw*W, x1=(sx[1]+1)/sw*W, y0=sy[0]/sh*H, y1=(sy[1]+1)/sh*H;
+  var padx=(x1-x0)*0.04, pady=(y1-y0)*0.04;      /* never shave the edge letters */
+  x0=Math.max(0,x0-padx); y0=Math.max(0,y0-pady);
+  x1=Math.min(W,x1+padx); y1=Math.min(H,y1+pady);
+  var w=Math.round(x1-x0), h=Math.round(y1-y0);
+  if(w < W*0.30 || h < H*0.30) return null;      /* suspiciously small — refuse */
+  if(w*h > W*H*0.88) return null;                /* fills the frame — nothing to do */
+  return { x:Math.round(x0), y:Math.round(y0), w:w, h:h };
 }
 
 /* Tesseract is trained on dark text over a light background. Light-on-dark
@@ -1324,6 +1369,8 @@ $('sheet').addEventListener('click', function(e){ if(e.target===$('sheet')) $('s
 $('langBtn').onclick=function(){ lang = lang==='zh'?'en':'zh'; S.lang=lang; saveSet(); paint(); };
 
 $('packSel').value=S.pack; $('psmSel').value=S.psm;
+$('optCrop').checked=S.autocrop;
+$('optCrop').onchange=function(){ S.autocrop=this.checked; saveSet(); };
 $('optSparse').checked=S.sparse;
 $('optSparse').onchange=function(){ S.sparse=this.checked; saveSet(); };
 $('optInvert').checked=S.invert;
@@ -1724,6 +1771,14 @@ function takeShot(c){
   if(!c){ toast(T('shotNoFrame')); return; }
   shotSrc = c;                                  /* held until accept or retake */
   clearShotSel();
+  /* Offer the detected sheet as the region to read. It is a normal selection:
+     visible on the photo, replaceable by dragging, removable with 全图重读. */
+  if(S.autocrop){
+    var det=null;
+    try{ det=contentRect(c); }catch(e){ det=null; }
+    if(det){ shotSel=det; autoCropped=true; }
+    else autoCropped=false;
+  } else autoCropped=false;
   scanning=false; steadyHits=0; prevSmall=null;
   /* the still is in memory — the camera has nothing left to do */
   closeCam();
@@ -1732,13 +1787,14 @@ function takeShot(c){
   shotCv.width=c.width; shotCv.height=c.height;
   shotCv.getContext('2d').drawImage(c,0,0);
   $('shotBox').classList.add('on');
+  if(shotSel) setTimeout(function(){ if(shotSel) drawShotSel(shotSel); }, 30);
   $('shootRow').classList.add('hide');
   readShot();
 }
 
 /* Drag on the frozen still to pick one paragraph. The still is already in
    memory, so re-reading a region costs nothing but the OCR itself. */
-var shotSel=null, shotDrag=false, shotStart=null, lastStat='';
+var shotSel=null, shotDrag=false, shotStart=null, lastStat='', autoCropped=false;
 function shotPoint(e){
   var r=shotCv.getBoundingClientRect();
   return { cx:e.clientX-r.left, cy:e.clientY-r.top, sx:shotCv.width/r.width, sy:shotCv.height/r.height };
@@ -1756,6 +1812,7 @@ shotCv.addEventListener('pointermove', function(e){
   var wdt=Math.abs(a.cx-b.cx), hgt=Math.abs(a.cy-b.cy);
   el.style.left=x+'px'; el.style.top=y+'px'; el.style.width=wdt+'px'; el.style.height=hgt+'px';
   el.classList.add('on');
+  autoCropped=false;
   shotSel={ x:Math.round(x*b.sx), y:Math.round(y*b.sy), w:Math.round(wdt*b.sx), h:Math.round(hgt*b.sy) };
 });
 shotCv.addEventListener('pointerup', function(){
@@ -1767,6 +1824,15 @@ shotCv.addEventListener('pointerup', function(){
   if(cssW<34 || cssH<24){ clearShotSel(); $('frameStat').textContent = lastStat; }
   else $('frameStat').textContent = T('selHint');
 });
+/* paint the selection box over the displayed canvas from canvas-space coords */
+function drawShotSel(r){
+  var el=$('shotSel'), rc=shotCv.getBoundingClientRect();
+  if(!rc.width || !shotCv.width){ el.classList.remove('on'); return; }
+  var kx=rc.width/shotCv.width, ky=rc.height/shotCv.height;
+  el.style.left=(r.x*kx)+'px'; el.style.top=(r.y*ky)+'px';
+  el.style.width=(r.w*kx)+'px'; el.style.height=(r.h*ky)+'px';
+  el.classList.add('on');
+}
 function clearShotSel(){
   shotSel=null;
   var el=$('shotSel');
@@ -1901,6 +1967,7 @@ function readShot(){
       $('frameStat').textContent = T('shotNone');
     } else {
       var bits=[T('shotRead').replace('%n', res.keep.length)];
+      if(autoCropped) bits.push(T('fsCrop'));
       if(invUsed)   bits.push(T('fsInvert'));
       if(sparseWon) bits.push(T('fsSparse'));
       if(passes>1)  bits.push(T('fsPass2'));
@@ -2019,6 +2086,8 @@ $('rawBtn').onclick=function(){
   }catch(e){ toast(T('rawFail')); }
 };
 $('rereadBtn').onclick=readShot;
+/* ignore any box — read the entire still */
+$('fullBtn').onclick=function(){ clearShotSel(); autoCropped=false; readShot(); };
 $('zoomBtn').onclick=function(){
   var next=ZOOMS[0];
   for(var i=0;i<ZOOMS.length;i++){ if(ZOOMS[i] > zoom + 0.05){ next=ZOOMS[i]; break; } }
